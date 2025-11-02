@@ -116,11 +116,23 @@ export default function App() {
     const label=first.toLocaleString(undefined,{month:"long",year:"numeric"});
     return (
       <div className="stack">
-        <div className="hstack" style={{justifyContent:"space-between"}}>
-          <button className="btn" onClick={()=>setCalendarMonth(addMonths(calendarMonth,-1))}>←</button>
-          <div style={{fontWeight:700,color:"#0ea5e9"}}>{label}</div>
-          <button className="btn" onClick={()=>setCalendarMonth(addMonths(calendarMonth,1))}>→</button>
-        </div>
+<div className="stack">
+  <div className="hstack" style={{ justifyContent: "space-between" }}>
+    <button
+      className="btn"
+      onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}
+    >
+      ←
+    </button>
+    <div style={{ fontWeight: 700, color: "#fff" }}>{label}</div>
+    <button
+      className="btn"
+      onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}
+    >
+      →
+    </button>
+  </div>
+</div>
         <div className="muted small" style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",textAlign:"center"}}>
           {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=><div key={d}>{d}</div>)}
         </div>
