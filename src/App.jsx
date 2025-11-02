@@ -26,7 +26,7 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(todayISO());
   const [showDay, setShowDay] = useState(null);
 
-  // ─── Load + Save ───
+  // ─── Load / Persist ───
   useEffect(() => {
     setOwners(JSON.parse(localStorage.getItem("fm_owners") || "[]"));
     setHorses(JSON.parse(localStorage.getItem("fm_horses") || "[]"));
@@ -34,7 +34,6 @@ export default function App() {
     setJobs(JSON.parse(localStorage.getItem("fm_jobs") || JSON.stringify(JOBS_DEFAULT)));
     setPaidHistory(JSON.parse(localStorage.getItem("fm_paid") || "[]"));
   }, []);
-
   useEffect(() => localStorage.setItem("fm_owners", JSON.stringify(owners)), [owners]);
   useEffect(() => localStorage.setItem("fm_horses", JSON.stringify(horses)), [horses]);
   useEffect(() => localStorage.setItem("fm_logs", JSON.stringify(logs)), [logs]);
@@ -44,18 +43,18 @@ export default function App() {
   const ownerMap = useMemo(() => Object.fromEntries(owners.map(o => [o.id, o])), [owners]);
   const horseMap = useMemo(() => Object.fromEntries(horses.map(h => [h.id, h])), [horses]);
 
-  // ─── Setup ───
+  // ─── Setup actions ───
   const addOwner = (name) => {
     name = name.trim();
     if (!name) return;
     setOwners(prev => [...prev, { id: uid(), name }]);
   };
   const removeOwner = (id) => {
-    if (!confirm("Delete owner and their horses?")) return;
-    const hIds = horses.filter(h => h.ownerId === id).map(h => h.id);
+    if (!confirm("Delete owner and all horses?")) return;
+    const horseIds = horses.filter(h => h.ownerId === id).map(h => h.id);
     setOwners(p => p.filter(o => o.id !== id));
     setHorses(p => p.filter(h => h.ownerId !== id));
-    setLogs(p => p.filter(l => !hIds.includes(l.horseId)));
+    setLogs(p => p.filter(l => !horseIds.includes(l.horseId)));
   };
 
   const addHorse = (name, ownerId) => {
@@ -69,7 +68,7 @@ export default function App() {
     setLogs(p => p.filter(l => l.horseId !== id));
   };
 
-  // ─── Jobs ───
+  // ─── Logging ───
   const logJob = (horseId, job) => {
     if (!horseId) return alert("Select a horse first");
     let label = job.label, price = job.price;
@@ -81,7 +80,7 @@ export default function App() {
       price = amt;
     }
     if (job.key === "shoot") {
-      const note = prompt("Until what time? (e.g. 13:00 or all day)");
+      const note = prompt("Until what time? (e.g. 1pm)");
       label = `Shoot ⚠️ — until ${note || "unknown"}`;
     }
     setLogs(prev => [
@@ -89,15 +88,14 @@ export default function App() {
       ...prev,
     ]);
   };
-
+  const removeLog = (id) => setLogs(p => p.filter(l => l.id !== id));
   const undoLast = () => setLogs(p => p.slice(1));
   const clearToday = () => {
     if (!confirm("Clear all jobs for today?")) return;
     setLogs(p => p.filter(l => l.ts !== currentDate));
   };
-  const removeLog = (id) => setLogs(p => p.filter(l => l.id !== id));
 
-  // ─── Mark Paid ───
+  // ─── Payments ───
   const markPaid = (ownerId) => {
     const ownedHorses = horses.filter(h => h.ownerId === ownerId).map(h => h.id);
     const items = logs.filter(l => ownedHorses.includes(l.horseId));
@@ -107,7 +105,6 @@ export default function App() {
     setLogs(p => p.filter(l => !ownedHorses.includes(l.horseId)));
   };
 
-  // ─── Export ───
   const exportCSV = () => {
     const rows = [["Date", "Owner", "Horse", "Job", "Price"]];
     for (const l of logs) {
@@ -121,7 +118,6 @@ export default function App() {
     a.href = url;
     a.download = `farmmate_logs_${todayISO()}.csv`;
     a.click();
-    URL.revokeObjectURL(url);
   };
 
   // ─── Derived ───
@@ -139,64 +135,115 @@ export default function App() {
     return map;
   }, [logs, owners, horses]);
 
-  // ─── Views ───
+  // ─── Daily / Setup Layout ───
   const DailyView = () => {
     const dailyLogs = logs.filter(l => l.ts === currentDate);
     const totalDay = dailyLogs.reduce((s, x) => s + x.price, 0);
+    const [ownerName, setOwnerName] = useState("");
+    const [horseName, setHorseName] = useState("");
+    const [horseOwnerId, setHorseOwnerId] = useState("");
 
     return (
-      <section className="card">
-        <div className="header" style={{ display: "flex", justifyContent: "space-between" }}>
-          <b>Daily Log — {currentDate}</b>
-          <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} />
-        </div>
-        <div className="content stack">
-          <select value={activeHorseId} onChange={e => setActiveHorseId(e.target.value)}>
-            <option value="">Select horse</option>
-            {horses.map(h => (
-              <option key={h.id} value={h.id}>
-                {h.name} — {ownerMap[h.ownerId]?.name}
-              </option>
-            ))}
-          </select>
-
-          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 8 }}>
-            {jobs.map(j => (
-              <button key={j.key} className="btn"
-                style={{ background: j.key === "shoot" ? "#f87171" : "#0ea5e9", color: "#fff" }}
-                onClick={() => logJob(activeHorseId, j)}>
-                {j.label} {j.price ? `• £${j.price}` : ""}
-              </button>
-            ))}
+      <div className="row" style={{ display: "grid", gap: "16px", gridTemplateColumns: "2fr 1fr" }}>
+        {/* Left — Quick Log */}
+        <section className="card">
+          <div className="header" style={{ display: "flex", justifyContent: "space-between" }}>
+            <b>Quick Log — {currentDate}</b>
+            <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} />
           </div>
+          <div className="content stack">
+            <select value={activeHorseId} onChange={e => setActiveHorseId(e.target.value)}>
+              <option value="">Select horse</option>
+              {horses.map(h => (
+                <option key={h.id} value={h.id}>{h.name} — {ownerMap[h.ownerId]?.name}</option>
+              ))}
+            </select>
 
-          <div className="hstack">
-            <button className="btn" onClick={undoLast}>Undo</button>
-            <button className="btn danger" onClick={clearToday}>Clear Today</button>
-            <button className="btn" onClick={exportCSV}>Export CSV</button>
+            <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 8 }}>
+              {jobs.map(j => (
+                <button key={j.key} className="btn"
+                  style={{ background: j.key==="shoot"?"#f87171":"#0ea5e9", color:"#fff" }}
+                  onClick={() => logJob(activeHorseId, j)}>
+                  {j.label} {j.price ? `• £${j.price}` : ""}
+                </button>
+              ))}
+            </div>
+
+            <div className="hstack">
+              <button className="btn" onClick={undoLast}>Undo</button>
+              <button className="btn danger" onClick={clearToday}>Clear Today</button>
+              <button className="btn" onClick={exportCSV}>Export CSV</button>
+            </div>
+
+            <div className="stack">
+              <b>Today's Jobs ({GBP.format(totalDay)})</b>
+              {dailyLogs.length===0 && <div className="muted small">No jobs logged yet.</div>}
+              {dailyLogs.map(l=>{
+                const h = horseMap[l.horseId], o = h ? ownerMap[h.ownerId] : {};
+                return (
+                  <div key={l.id} className="rowline small">
+                    <div><b>{l.jobLabel}</b> — {h?.name} ({o?.name})</div>
+                    <button className="btn sm danger" onClick={()=>removeLog(l.id)}>🗑</button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
+        </section>
 
-          <div className="stack">
-            <b>Today's Jobs ({GBP.format(totalDay)})</b>
-            {dailyLogs.map(l => {
-              const h = horseMap[l.horseId], o = h ? ownerMap[h.ownerId] : {};
-              return (
-                <div key={l.id} className="rowline small">
-                  <div><b>{l.jobLabel}</b> — {h?.name || "Horse"} ({o?.name || "Owner"})</div>
-                  <button className="btn sm danger" onClick={() => removeLog(l.id)}>🗑</button>
+        {/* Right — Setup + Totals */}
+        <div className="stack">
+          <section className="card">
+            <div className="header">Setup</div>
+            <div className="content stack small">
+              <b>Owners</b>
+              <div className="hstack">
+                <input className="input" placeholder="Owner name" value={ownerName} onChange={e=>setOwnerName(e.target.value)} />
+                <button className="btn primary" onClick={()=>{ addOwner(ownerName); setOwnerName(""); }}>Add</button>
+              </div>
+              {owners.map(o=>(
+                <div key={o.id} className="rowline small">
+                  <div>{o.name}</div>
+                  <div className="hstack">
+                    <button className="btn sm" onClick={()=>markPaid(o.id)}>Paid</button>
+                    <button className="btn sm ghost" onClick={()=>removeOwner(o.id)}>🗑</button>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+
+              <b>Horses</b>
+              <input className="input" placeholder="Horse name" value={horseName} onChange={e=>setHorseName(e.target.value)} />
+              <select value={horseOwnerId} onChange={e=>setHorseOwnerId(e.target.value)}>
+                <option value="">Select owner</option>
+                {owners.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+              <button className="btn primary" onClick={()=>{ addHorse(horseName, horseOwnerId); setHorseName(""); }}>Add Horse</button>
+
+              {horses.map(h=>(
+                <div key={h.id} className="rowline small">
+                  <div>{h.name} — {ownerMap[h.ownerId]?.name}</div>
+                  <button className="btn sm ghost" onClick={()=>removeHorse(h.id)}>🗑</button>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Totals */}
+          <div>{/* TotalsCard continues in Part 2 */}</div>
         </div>
-      </section>
+      </div>
     );
   };
-
+  // ─── Totals Card ───
   const TotalsCard = () => {
-    if (!totals.size) return (
-      <div className="card"><div className="header">Totals</div><div className="content small muted">No jobs logged yet.</div></div>
-    );
+    if (!totals.size)
+      return (
+        <div className="card">
+          <div className="header">Totals</div>
+          <div className="content small muted">No jobs logged yet.</div>
+        </div>
+      );
+
     const entries = Array.from(totals.values());
     return (
       <div className="card">
@@ -208,14 +255,18 @@ export default function App() {
                 <div style={{ fontWeight: 700 }}>{owner.name}</div>
                 <div className="hstack">
                   <div className="badge">{GBP.format(total)}</div>
-                  <button className="btn sm" onClick={() => markPaid(owner.id)}>Mark Paid</button>
+                  <button className="btn sm" onClick={() => markPaid(owner.id)}>
+                    Mark Paid
+                  </button>
                 </div>
               </div>
               <div className="owner-rows">
                 {Array.from(horses.values()).map(({ horse, jobs, total }) => (
                   <div key={horse.id} className="rowline small">
                     <div>{horse.name}</div>
-                    <div className="muted">{jobs} jobs • {GBP.format(total)}</div>
+                    <div className="muted">
+                      {jobs} jobs • {GBP.format(total)}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -225,6 +276,7 @@ export default function App() {
       </div>
     );
   };
+
   // ─── Calendar View ───
   const CalendarView = () => {
     const [month, setMonth] = useState(new Date());
@@ -443,17 +495,19 @@ export default function App() {
     </header>
   );
 
-  // ─── Return Layout ───
+  // ─── Final Return ───
   return (
     <div style={{background:"#f8fafc",minHeight:"100vh"}}>
-      <Header />
+      <Header/>
       <div className="container" style={{padding:"16px"}}>
-        {tab==="daily" && <><DailyView /><TotalsCard /></>}
-        {tab==="calendar" && <CalendarView />}
-        {tab==="paid" && <PaidHistoryView />}
+        {tab==="daily" && <><DailyView/><TotalsCard/></>}
+        {tab==="calendar" && <CalendarView/>}
+        {tab==="paid" && <PaidHistoryView/>}
       </div>
-      <footer style={{textAlign:"center",padding:"12px",color:"#64748b"}}>Data stored locally on this device.</footer>
-      {showDay && <DayModal iso={showDay} onClose={()=>setShowDay(null)} />}
+      <footer style={{textAlign:"center",padding:"12px",color:"#64748b"}}>
+        Data stored locally on this device.
+      </footer>
+      {showDay && <DayModal iso={showDay} onClose={()=>setShowDay(null)}/>}
     </div>
   );
 }
