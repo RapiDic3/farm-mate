@@ -3,7 +3,8 @@ import React, { useEffect, useState, useMemo } from "react";
 const GBP = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 const uid = () => Math.random().toString(36).slice(2, 10);
 const toISO = (d = new Date()) => d.toISOString().slice(0, 10);
-const fmtDate = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+const fmtDate = (iso) =>
+  new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
 export default function App() {
   const [tab, setTab] = useState("daily");
@@ -25,7 +26,7 @@ export default function App() {
   const [showDay, setShowDay] = useState(null);
   const [currentDate, setCurrentDate] = useState(toISO());
 
-  // ── Load + Persist ──
+  // ─── Load / Persist ───
   useEffect(() => {
     const ls = (k) => JSON.parse(localStorage.getItem(k) || "[]");
     setOwners(ls("fm_owners"));
@@ -33,19 +34,19 @@ export default function App() {
     setLogs(ls("fm_logs"));
     setPaidHistory(ls("fm_paid"));
   }, []);
-
   useEffect(() => localStorage.setItem("fm_owners", JSON.stringify(owners)), [owners]);
   useEffect(() => localStorage.setItem("fm_horses", JSON.stringify(horses)), [horses]);
   useEffect(() => localStorage.setItem("fm_logs", JSON.stringify(logs)), [logs]);
   useEffect(() => localStorage.setItem("fm_paid", JSON.stringify(paidHistory)), [paidHistory]);
 
-  const ownerMap = useMemo(() => Object.fromEntries(owners.map(o => [o.id, o])), [owners]);
-  const horseMap = useMemo(() => Object.fromEntries(horses.map(h => [h.id, h])), [horses]);
+  const ownerMap = useMemo(() => Object.fromEntries(owners.map((o) => [o.id, o])), [owners]);
+  const horseMap = useMemo(() => Object.fromEntries(horses.map((h) => [h.id, h])), [horses]);
 
-  // ── Job logging ──
+  // ─── Job logging ───
   const logJob = (horseId, job, date = currentDate) => {
     if (!horseId) return alert("Select a horse first");
-    let label = job.label, price = job.price;
+    let label = job.label,
+      price = job.price;
     if (job.key === "other") {
       const desc = prompt("Job description?");
       if (!desc) return;
@@ -106,7 +107,7 @@ export default function App() {
   const dailyLogs = logs.filter((l) => l.ts === currentDate);
   const totalForDay = dailyLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
-  // ── Daily View ──
+  // ─── Daily View ───
   const DailyView = () => (
     <section className="card">
       <div className="header" style={{ display: "flex", justifyContent: "space-between" }}>
@@ -124,13 +125,9 @@ export default function App() {
             </option>
           ))}
         </select>
-
         <div
           className="grid"
-          style={{
-            gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
-            gap: "8px",
-          }}
+          style={{ gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: "8px" }}
         >
           {jobs.map((j) => (
             <button
@@ -147,7 +144,6 @@ export default function App() {
             </button>
           ))}
         </div>
-
         <div className="hstack">
           <button className="btn" onClick={undoLast}>
             Undo
@@ -159,14 +155,11 @@ export default function App() {
             Export CSV
           </button>
         </div>
-
         <div className="stack">
           <div className="small" style={{ fontWeight: 700 }}>
             Today’s Jobs ({GBP.format(totalForDay)})
           </div>
-          {dailyLogs.length === 0 && (
-            <div className="muted small">No jobs logged today.</div>
-          )}
+          {dailyLogs.length === 0 && <div className="muted small">No jobs logged today.</div>}
           {dailyLogs.map((l) => {
             const h = horseMap[l.horseId],
               o = h ? ownerMap[h.ownerId] : null;
@@ -186,7 +179,7 @@ export default function App() {
     </section>
   );
 
-  // ── Calendar View ──
+  // ─── Calendar ───
   const CalendarView = () => {
     const [month, setMonth] = useState(new Date());
     const year = month.getFullYear(),
@@ -242,7 +235,6 @@ export default function App() {
               <div key={d}>{d}</div>
             ))}
           </div>
-
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "4px" }}>
             {[...Array(startDay).keys()].map((i) => (
               <div key={"e" + i}></div>
@@ -281,7 +273,8 @@ export default function App() {
       </section>
     );
   };
-  // ── Day Modal ──
+
+  // ─── Day Modal ───
   const DayModal = ({ iso, onClose }) => {
     const list = logs.filter((l) => l.ts === iso);
     const total = list.reduce((s, x) => s + Number(x.price || 0), 0);
@@ -323,19 +316,13 @@ export default function App() {
                 <div>
                   <b>{l.jobLabel}</b> — {h?.name || "Horse"} ({o?.name || "Owner"})
                 </div>
-                <button
-                  className="btn sm danger"
-                  onClick={() => removeLog(l.id)}
-                >
+                <button className="btn sm danger" onClick={() => removeLog(l.id)}>
                   🗑
                 </button>
               </div>
             );
           })}
-          <div
-            className="muted small"
-            style={{ marginTop: "8px", fontWeight: 700 }}
-          >
+          <div className="muted small" style={{ marginTop: "8px", fontWeight: 700 }}>
             Total {GBP.format(total)}
           </div>
         </div>
@@ -343,10 +330,9 @@ export default function App() {
     );
   };
 
-  // ── Paid History View ──
+  // ─── Paid History ───
   const PaidHistoryView = () => {
     const [filterOwner, setFilterOwner] = useState("all");
-
     const filtered =
       filterOwner === "all"
         ? paidHistory
@@ -443,7 +429,7 @@ export default function App() {
     );
   };
 
-  // ── Header ──
+  // ─── Header ───
   const Header = () => (
     <header
       style={{
@@ -485,7 +471,7 @@ export default function App() {
     </header>
   );
 
-  // ── Return Layout ──
+  // ─── Return Layout ───
   return (
     <div
       style={{
