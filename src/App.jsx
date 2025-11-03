@@ -142,7 +142,6 @@ export default function App() {
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
 
-// ── CalendarView ──
 const CalendarView = () => {
   const { days, first } = monthMatrix(calendarMonth);
   const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
@@ -254,11 +253,12 @@ const CalendarView = () => {
               )}
             </button>
           );
-        })} {/* ✅ Properly closed map() call */}
-      </div> {/* ✅ Closes grid */}
-    </div>   {/* ✅ Closes main wrapper */}
+        })}
+      </div>
+    </div>
   );
-};           // ✅ Closes CalendarView
+};
+
 
 
   // ── DayModal (unchanged full content from your file)
