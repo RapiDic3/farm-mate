@@ -295,10 +295,11 @@ const DayModal = ({ iso, onClose }) => {
   const total = rangeLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
   const addJob = (job) => {
-    if (!selectedHorse) return alert("Choose a horse first");
-    previewDates.forEach((day) => logJob(selectedHorse, job, day));
-    alert(`✅ ${job.label} added for ${previewDates.length} day(s)!`);
-  };
+  if (!selectedHorse) return alert("Choose a horse first");
+  previewDates.forEach((day) => logJob(selectedHorse, job, day));
+  // brief visual feedback instead of alert, allows multiple clicks
+  if (navigator.vibrate) navigator.vibrate(10);
+};
 
   const removeJob = (id) => {
     if (!confirm("Remove this job?")) return;
