@@ -268,21 +268,8 @@ const DailyView = () => {
   const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
   const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
-  const markAllPaid = () => {
-    if (!todayLogs.length) return alert("No jobs to mark paid.");
-    if (!confirm("Mark all today's jobs as paid?")) return;
-    setLogs((prev) =>
-      prev.map((l) =>
-        l.ts.slice(0, 10) === selectedDate ? { ...l, paid: true } : l
-      )
-    );
-  };
-
-  const paidJobs = todayLogs.filter((l) => l.paid);
-  const paidTotal = paidJobs.reduce((s, x) => s + Number(x.price || 0), 0);
-
-  // ✅ Build full paid history (invoices)
-  const groupedByOwner = useMemo(() => {
+  // Generate grouped owners for paid history
+  const groupedPaid = useMemo(() => {
     const groups = {};
     logs
       .filter((l) => l.paid)
@@ -295,6 +282,41 @@ const DailyView = () => {
       });
     return groups;
   }, [logs, horseMap, ownerMap]);
+
+  // New: pending invoice list
+  const invoices = useMemo(() => {
+    const groups = {};
+    logs
+      .filter((l) => !l.paid && l.ts.slice(0, 10) === selectedDate)
+      .forEach((l) => {
+        const h = horseMap[l.horseId];
+        const o = h ? ownerMap[h.ownerId] : null;
+        if (!o) return;
+        if (!groups[o.name]) groups[o.name] = [];
+        groups[o.name].push({ ...l, horse: h?.name });
+      });
+    return groups;
+  }, [logs, selectedDate, horseMap, ownerMap]);
+
+  // “Invoice” button — move jobs into invoice section (no state change, just visual grouping)
+  const createInvoice = () => {
+    if (!todayLogs.length) return alert("No jobs to invoice today.");
+    alert("✅ Invoice created below — ready for screenshot.");
+  };
+
+  // Mark an invoice (group) as paid
+  const markInvoicePaid = (ownerName) => {
+    if (!confirm(`Mark ${ownerName}'s invoice as paid?`)) return;
+    setLogs((prev) =>
+      prev.map((l) =>
+        l.paid || !ownerMap[horseMap[l.horseId]?.ownerId]
+          ? l
+          : ownerMap[horseMap[l.horseId]?.ownerId].name === ownerName
+          ? { ...l, paid: true }
+          : l
+      )
+    );
+  };
 
   return (
     <div
@@ -409,7 +431,7 @@ const DailyView = () => {
             </div>
           </div>
 
-          {/* RIGHT SIDE — Logged Jobs + Invoices */}
+          {/* RIGHT SIDE — Logs, Invoice, and Paid History */}
           <div className="stack">
             <div className="muted small" style={{ fontWeight: 700 }}>
               Jobs Logged
@@ -454,19 +476,13 @@ const DailyView = () => {
             )}
 
             {todayLogs.length > 0 && (
-              <button className="btn primary" onClick={markAllPaid}>
-                ✅ Mark All Paid
+              <button className="btn primary" onClick={createInvoice}>
+                🧾 Invoice
               </button>
             )}
 
-            {paidJobs.length > 0 && (
-              <div className="muted small">
-                Paid today: {GBP.format(paidTotal)}
-              </div>
-            )}
-
-            {/* ✅ Invoice summary below total */}
-            {Object.keys(groupedByOwner).length > 0 && (
+            {/* ✅ Invoice section */}
+            {Object.keys(invoices).length > 0 && (
               <div
                 style={{
                   borderTop: "1px solid #e2e8f0",
@@ -475,9 +491,9 @@ const DailyView = () => {
                 }}
               >
                 <div className="muted small" style={{ fontWeight: 700 }}>
-                  Invoice History
+                  Invoices
                 </div>
-                {Object.entries(groupedByOwner).map(([ownerName, items]) => {
+                {Object.entries(invoices).map(([ownerName, items]) => {
                   const total = items.reduce(
                     (sum, x) => sum + Number(x.price || 0),
                     0
@@ -487,13 +503,14 @@ const DailyView = () => {
                       key={ownerName}
                       style={{
                         marginTop: "6px",
-                        background: "#f8fafc",
+                        background: "#fff7ed",
                         borderRadius: "8px",
-                        padding: "6px 8px",
+                        padding: "8px 10px",
+                        border: "1px solid #fed7aa",
                       }}
                     >
                       <div style={{ fontWeight: 700 }}>{ownerName}</div>
-                      {items.slice(0, 5).map((x) => (
+                      {items.map((x) => (
                         <div
                           key={x.id}
                           className="small muted"
@@ -517,6 +534,71 @@ const DailyView = () => {
                       >
                         Total: {GBP.format(total)}
                       </div>
+                      <button
+                        className="btn sm primary"
+                        onClick={() => markInvoicePaid(ownerName)}
+                        style={{ marginTop: "6px" }}
+                      >
+                        💰 Mark Paid
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ✅ Paid invoice history below */}
+            {Object.keys(groupedPaid).length > 0 && (
+              <div
+                style={{
+                  borderTop: "1px solid #e2e8f0",
+                  marginTop: "16px",
+                  paddingTop: "8px",
+                }}
+              >
+                <div className="muted small" style={{ fontWeight: 700 }}>
+                  Paid History
+                </div>
+                {Object.entries(groupedPaid).map(([ownerName, items]) => {
+                  const total = items.reduce(
+                    (sum, x) => sum + Number(x.price || 0),
+                    0
+                  );
+                  return (
+                    <div
+                      key={ownerName}
+                      style={{
+                        marginTop: "6px",
+                        background: "#f8fafc",
+                        borderRadius: "8px",
+                        padding: "6px 8px",
+                      }}
+                    >
+                      <div style={{ fontWeight: 700 }}>{ownerName}</div>
+                      {items.slice(-5).map((x) => (
+                        <div
+                          key={x.id}
+                          className="small muted"
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <span>
+                            {fmtDate(x.ts)} — {x.horse} — {x.jobLabel}
+                          </span>
+                          <span>{GBP.format(x.price)}</span>
+                        </div>
+                      ))}
+                      <div
+                        style={{
+                          textAlign: "right",
+                          fontWeight: 700,
+                          marginTop: "4px",
+                        }}
+                      >
+                        Total Paid: {GBP.format(total)}
+                      </div>
                     </div>
                   );
                 })}
@@ -528,6 +610,7 @@ const DailyView = () => {
     </div>
   );
 };
+
 
 
   // ── OwnersView (unchanged)
