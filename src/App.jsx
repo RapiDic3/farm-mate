@@ -144,7 +144,8 @@ export default function App() {
   const jobsOnDate = (iso) => logs.filter((l) => l.ts.slice(0, 10) === iso);
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
-// ── CalendarView ────────────────────────────────
+};
+  
 // ── CalendarView ────────────────────────────────
 const CalendarView = () => {
   const { days, first } = monthMatrix(calendarMonth);
@@ -380,12 +381,7 @@ const CalendarView = () => {
     </div>
   );
 };
-
-
-// ── DayModal ─────────────────────────────────────
-// ── DayModal with From–To Range ─────────────────────────────────────
-// ── DayModal with From–To Range + Invoicing ─────────────────────────────────────
-// ── CalendarView ────────────────────────────────
+// ── CalendarView
 const CalendarView = () => {
   const { days, first } = monthMatrix(calendarMonth);
   const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
@@ -514,6 +510,130 @@ const CalendarView = () => {
           );
         })}
       </div>
+        <div
+          style={{
+            marginTop: "24px",
+            background: "#fff",
+            borderRadius: "12px",
+            padding: "16px",
+            border: "1px solid #e2e8f0",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 700,
+              marginBottom: "10px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span>Invoices</span>
+            <select
+              value={filterOwner}
+              onChange={(e) => setFilterOwner(e.target.value)}
+              style={{ padding: "4px 8px" }}
+            >
+              <option value="">All Owners</option>
+              {owners.map((o) => (
+                <option key={o.id} value={o.name}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {visibleInvoices.map((inv) => (
+            <div
+              key={inv.id}
+              style={{
+                background: inv.paid ? "#dcfce7" : "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "10px",
+                marginBottom: "12px",
+                padding: "12px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "6px",
+                  fontWeight: 700,
+                }}
+              >
+                <div>
+                  <div>{inv.owner}</div>
+                  <div className="muted small">
+                    {inv.range ? `Dates: ${inv.range}` : `Date: ${fmtDate(inv.date)}`}
+                  </div>
+                </div>
+                <div>{inv.paid ? "✅ Paid" : "🧾 Unpaid"}</div>
+              </div>
+
+              {inv.items.map((x) => (
+                <div
+                  key={x.id}
+                  className="small muted"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    borderBottom: "1px dashed #e2e8f0",
+                    padding: "2px 0",
+                  }}
+                >
+                  <span>
+                    {x.horse} — {x.jobLabel}
+                    <span style={{ fontSize: "12px", color: "#64748b" }}>
+                      {" "}
+                      • {fmtDate(x.ts)}
+                    </span>
+                  </span>
+                  <span>{GBP.format(x.price)}</span>
+                </div>
+              ))}
+
+              <div
+                style={{
+                  textAlign: "right",
+                  fontWeight: 700,
+                  marginTop: "6px",
+                  borderTop: "1px solid #e2e8f0",
+                  paddingTop: "4px",
+                }}
+              >
+                Total: {GBP.format(inv.total)}
+              </div>
+
+              {!inv.paid && (
+                <button
+                  className="btn sm primary"
+                  onClick={() => {
+                    if (!confirm(`Mark ${inv.owner}'s invoice as paid?`)) return;
+                    setInvoices((prev) =>
+                      prev.map((i) => (i.id === inv.id ? { ...i, paid: true } : i))
+                    );
+                    setLogs((prev) =>
+                      prev.map((l) =>
+                        inv.items.some((x) => x.id === l.id)
+                          ? { ...l, paid: true }
+                          : l
+                      )
+                    );
+                  }}
+                  style={{ marginTop: "8px", float: "right" }}
+                >
+                  💰 Mark Paid
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
       {/* ── Invoices Section ─────────────────────────────── */}
       {invoices.length > 0 && (
