@@ -34,17 +34,13 @@
                       right: "6px",
                       fontSize: "14px",
                     }}
-                  >
-                    💰
-                  </div>
-                )}
-              </button>
-            );
-          })}
+        >
+          💰
         </div>
-      </div>
-    );
-  };
+      )}
+    </button>
+  );
+})}
 
   // ✅ FIX — Added missing DayModal (only change)
   const DayModal = ({ iso, onClose }) => {
