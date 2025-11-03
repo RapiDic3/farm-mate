@@ -817,90 +817,100 @@ const DailyView = () => {
       Invoices
     </div>
 
-    {invoices.map((inv) => (
-      <div
-        key={inv.id}
+ {invoices.map((inv) => (
+  <div
+    key={inv.id}
+    style={{
+      background: inv.paid ? "#dcfce7" : "#fff",
+      border: "1px solid #e2e8f0",
+      borderRadius: "10px",
+      marginBottom: "12px",
+      padding: "14px 12px",
+    }}
+  >
+    {/* Header */}
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        fontWeight: 700,
+        marginBottom: "8px",
+      }}
+    >
+      <div>
+        <div style={{ fontSize: "16px" }}>{inv.owner}</div>
+        <div className="muted small" style={{ fontSize: "13px" }}>
+          {inv.range
+            ? `Dates: ${inv.range}`
+            : `Date: ${fmtDate(inv.date)}`}
+        </div>
+      </div>
+      <span
         style={{
-          background: inv.paid ? "#dcfce7" : "#fff",
-          border: "1px solid #e2e8f0",
-          borderRadius: "10px",
-          marginBottom: "12px",
-          padding: "14px 12px",
+          fontWeight: 700,
+          color: inv.paid ? "#166534" : "#b91c1c",
+          fontSize: "13px",
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontWeight: 700,
-            marginBottom: "8px",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: "16px" }}>{inv.owner}</div>
-            <div className="muted small" style={{ fontSize: "13px" }}>
-              {inv.range
-                ? `Dates: ${inv.range}`
-                : `Date: ${fmtDate(inv.date)}`}
-            </div>
-          </div>
+        {inv.paid ? "✅ Paid" : "🧾 Unpaid"}
+      </span>
+    </div>
+
+    {/* Job Items with Dates */}
+    {inv.items.map((x) => (
+      <div
+        key={x.id}
+        className="small muted"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: "1px dashed #e2e8f0",
+          padding: "4px 0",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <span>
+            <strong>{x.horse}</strong> — {x.jobLabel}
+          </span>
           <span
-            style={{
-              fontWeight: 700,
-              color: inv.paid ? "#166534" : "#b91c1c",
-              fontSize: "13px",
-            }}
+            className="muted"
+            style={{ fontSize: "12px", color: "#64748b" }}
           >
-            {inv.paid ? "✅ Paid" : "🧾 Unpaid"}
+            {fmtDate(x.ts)}
           </span>
         </div>
-
-        {/* Job Items */}
-        {inv.items.map((x) => (
-          <div
-            key={x.id}
-            className="small muted"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              borderBottom: "1px dashed #e2e8f0",
-              padding: "2px 0",
-            }}
-          >
-            <span>
-              {x.horse} — {x.jobLabel}
-            </span>
-            <span>{GBP.format(x.price)}</span>
-          </div>
-        ))}
-
-        {/* Total */}
-        <div
-          style={{
-            textAlign: "right",
-            fontWeight: 700,
-            marginTop: "8px",
-            borderTop: "1px solid #e2e8f0",
-            paddingTop: "6px",
-          }}
-        >
-          Total: {GBP.format(inv.total)}
-        </div>
-
-        {/* Paid Button */}
-        {!inv.paid && (
-          <button
-            className="btn sm primary"
-            onClick={() => markInvoicePaid(inv.id)}
-            style={{ marginTop: "10px", float: "right" }}
-          >
-            💰 Mark Paid
-          </button>
-        )}
+        <span style={{ fontWeight: 600 }}>{GBP.format(x.price)}</span>
       </div>
     ))}
+
+    {/* Total */}
+    <div
+      style={{
+        textAlign: "right",
+        fontWeight: 700,
+        marginTop: "8px",
+        borderTop: "1px solid #e2e8f0",
+        paddingTop: "6px",
+      }}
+    >
+      Total: {GBP.format(inv.total)}
+    </div>
+
+    {/* Paid Button */}
+    {!inv.paid && (
+      <button
+        className="btn sm primary"
+        onClick={() => markInvoicePaid(inv.id)}
+        style={{ marginTop: "10px", float: "right" }}
+      >
+        💰 Mark Paid
+      </button>
+    )}
+  </div>
+))}
+
   </div>
 )}
 
