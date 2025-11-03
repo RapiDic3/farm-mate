@@ -268,59 +268,48 @@ const DailyView = () => {
   const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
   const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
-  // Generate grouped owners for paid history
-  const groupedPaid = useMemo(() => {
-    const groups = {};
-    logs
-      .filter((l) => l.paid)
-      .forEach((l) => {
-        const h = horseMap[l.horseId];
-        const o = h ? ownerMap[h.ownerId] : null;
-        if (!o) return;
-        if (!groups[o.name]) groups[o.name] = [];
-        groups[o.name].push({ ...l, horse: h?.name });
-      });
-    return groups;
-  }, [logs, horseMap, ownerMap]);
+  const makeInvoice = () => {
+    if (!todayLogs.length) return alert("No jobs to invoice.");
+    // Group by owner
+    const byOwner = {};
+    todayLogs.forEach((l) => {
+      const h = horseMap[l.horseId];
+      const o = h ? ownerMap[h.ownerId] : null;
+      if (!o) return;
+      if (!byOwner[o.name]) byOwner[o.name] = [];
+      byOwner[o.name].push({ ...l, horse: h?.name });
+    });
 
-  // New: pending invoice list
-  const invoices = useMemo(() => {
-    const groups = {};
-    logs
-      .filter((l) => !l.paid && l.ts.slice(0, 10) === selectedDate)
-      .forEach((l) => {
-        const h = horseMap[l.horseId];
-        const o = h ? ownerMap[h.ownerId] : null;
-        if (!o) return;
-        if (!groups[o.name]) groups[o.name] = [];
-        groups[o.name].push({ ...l, horse: h?.name });
-      });
-    return groups;
-  }, [logs, selectedDate, horseMap, ownerMap]);
+    const newInvoices = Object.entries(byOwner).map(([owner, items]) => ({
+      id: uid(),
+      date: selectedDate,
+      owner,
+      items,
+      total: items.reduce((sum, x) => sum + Number(x.price || 0), 0),
+      paid: false,
+    }));
 
-  // “Invoice” button — move jobs into invoice section (no state change, just visual grouping)
-  const createInvoice = () => {
-    if (!todayLogs.length) return alert("No jobs to invoice today.");
-    alert("✅ Invoice created below — ready for screenshot.");
+    setInvoices((prev) => [...newInvoices, ...prev]);
+    alert("✅ Invoice created! Scroll down to view or screenshot.");
   };
 
-  // Mark an invoice (group) as paid
-  const markInvoicePaid = (ownerName) => {
-    if (!confirm(`Mark ${ownerName}'s invoice as paid?`)) return;
+  const markInvoicePaid = (id) => {
+    if (!confirm("Mark this invoice as paid?")) return;
+    const inv = invoices.find((i) => i.id === id);
+    if (!inv) return;
+    // mark invoice + logs as paid
+    setInvoices((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, paid: true } : i))
+    );
     setLogs((prev) =>
       prev.map((l) =>
-        l.paid || !ownerMap[horseMap[l.horseId]?.ownerId]
-          ? l
-          : ownerMap[horseMap[l.horseId]?.ownerId].name === ownerName
-          ? { ...l, paid: true }
-          : l
+        inv.items.some((x) => x.id === l.id) ? { ...l, paid: true } : l
       )
     );
   };
 
   return (
     <div
-      className="daily-view"
       style={{
         width: "100%",
         minHeight: "calc(100vh - var(--header-height, 60px))",
@@ -332,7 +321,6 @@ const DailyView = () => {
       <section
         className="card full"
         style={{
-          width: "100%",
           background: "#fff",
           borderRadius: "0",
           border: "none",
@@ -373,243 +361,124 @@ const DailyView = () => {
           </div>
         </div>
 
-        {/* Two-column layout */}
-        <div
-          className="content"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1.2fr",
-            gap: "32px",
-            alignItems: "start",
-            marginTop: "20px",
-          }}
-        >
-          {/* LEFT SIDE — Add Jobs */}
-          <div className="stack">
-            <div className="muted small" style={{ fontWeight: 700 }}>
-              Select Horse
-            </div>
-            <select
-              value={activeHorseId}
-              onChange={(e) => setActiveHorseId(e.target.value)}
-            >
-              <option value="">Choose horse</option>
-              {horses.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} — {ownerMap[h.ownerId]?.name}
-                </option>
-              ))}
-            </select>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
-                gap: "8px",
-                marginTop: "12px",
-              }}
-            >
-              {jobs.map((j) => (
-                <button
-                  key={j.key}
-                  className="btn"
-                  onClick={() => logJob(activeHorseId, j)}
-                >
-                  {j.label}
-                  {j.price ? ` • ${GBP.format(j.price)}` : ""}
-                </button>
-              ))}
-            </div>
-
-            <div className="hstack" style={{ marginTop: "12px" }}>
-              <button className="btn sm" onClick={undoLast}>
-                ↩️ Undo Last
-              </button>
-              <button className="btn sm danger" onClick={clearDay}>
-                🗑 Clear Day
-              </button>
-            </div>
-          </div>
-
-          {/* RIGHT SIDE — Logs, Invoice, and Paid History */}
-          <div className="stack">
-            <div className="muted small" style={{ fontWeight: 700 }}>
-              Jobs Logged
-            </div>
-
-            {todayLogs.length === 0 && (
-              <div className="muted small">No jobs logged today.</div>
-            )}
-
-            {todayLogs.map((l) => {
-              const h = horseMap[l.horseId];
-              const o = h ? ownerMap[h.ownerId] : null;
-              return (
-                <div
-                  key={l.id}
-                  className="rowline small"
-                  style={{ opacity: l.paid ? 0.6 : 1 }}
-                >
-                  <div>
-                    <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
-                    <span className="muted">
-                      ({o?.name || "Owner"}) {l.paid && "✅"}
-                    </span>
-                  </div>
-                  <div className="hstack">
-                    <div className="badge">{GBP.format(l.price)}</div>
-                    <button
-                      className="btn sm danger"
-                      onClick={() => removeLog(l.id)}
-                    >
-                      🗑
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {todayLogs.length > 0 && (
-              <div style={{ fontWeight: 700, marginTop: "8px" }}>
-                Total {GBP.format(todayTotal)}
-              </div>
-            )}
-
-            {todayLogs.length > 0 && (
-              <button className="btn primary" onClick={createInvoice}>
-                🧾 Invoice
-              </button>
-            )}
-
-            {/* ✅ Invoice section */}
-            {Object.keys(invoices).length > 0 && (
+        {/* Jobs list */}
+        <div style={{ marginTop: "16px" }}>
+          {todayLogs.length === 0 && (
+            <div className="muted small">No jobs logged today.</div>
+          )}
+          {todayLogs.map((l) => {
+            const h = horseMap[l.horseId];
+            const o = h ? ownerMap[h.ownerId] : null;
+            return (
               <div
-                style={{
-                  borderTop: "1px solid #e2e8f0",
-                  marginTop: "16px",
-                  paddingTop: "8px",
-                }}
+                key={l.id}
+                className="rowline small"
+                style={{ opacity: l.paid ? 0.6 : 1 }}
               >
-                <div className="muted small" style={{ fontWeight: 700 }}>
-                  Invoices
+                <div>
+                  <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
+                  <span className="muted">({o?.name || "Owner"})</span>
                 </div>
-                {Object.entries(invoices).map(([ownerName, items]) => {
-                  const total = items.reduce(
-                    (sum, x) => sum + Number(x.price || 0),
-                    0
-                  );
-                  return (
-                    <div
-                      key={ownerName}
-                      style={{
-                        marginTop: "6px",
-                        background: "#fff7ed",
-                        borderRadius: "8px",
-                        padding: "8px 10px",
-                        border: "1px solid #fed7aa",
-                      }}
-                    >
-                      <div style={{ fontWeight: 700 }}>{ownerName}</div>
-                      {items.map((x) => (
-                        <div
-                          key={x.id}
-                          className="small muted"
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <span>
-                            {fmtDate(x.ts)} — {x.horse} — {x.jobLabel}
-                          </span>
-                          <span>{GBP.format(x.price)}</span>
-                        </div>
-                      ))}
-                      <div
-                        style={{
-                          textAlign: "right",
-                          fontWeight: 700,
-                          marginTop: "4px",
-                        }}
-                      >
-                        Total: {GBP.format(total)}
-                      </div>
-                      <button
-                        className="btn sm primary"
-                        onClick={() => markInvoicePaid(ownerName)}
-                        style={{ marginTop: "6px" }}
-                      >
-                        💰 Mark Paid
-                      </button>
-                    </div>
-                  );
-                })}
+                <div className="badge">{GBP.format(l.price)}</div>
               </div>
-            )}
-
-            {/* ✅ Paid invoice history below */}
-            {Object.keys(groupedPaid).length > 0 && (
-              <div
-                style={{
-                  borderTop: "1px solid #e2e8f0",
-                  marginTop: "16px",
-                  paddingTop: "8px",
-                }}
-              >
-                <div className="muted small" style={{ fontWeight: 700 }}>
-                  Paid History
-                </div>
-                {Object.entries(groupedPaid).map(([ownerName, items]) => {
-                  const total = items.reduce(
-                    (sum, x) => sum + Number(x.price || 0),
-                    0
-                  );
-                  return (
-                    <div
-                      key={ownerName}
-                      style={{
-                        marginTop: "6px",
-                        background: "#f8fafc",
-                        borderRadius: "8px",
-                        padding: "6px 8px",
-                      }}
-                    >
-                      <div style={{ fontWeight: 700 }}>{ownerName}</div>
-                      {items.slice(-5).map((x) => (
-                        <div
-                          key={x.id}
-                          className="small muted"
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <span>
-                            {fmtDate(x.ts)} — {x.horse} — {x.jobLabel}
-                          </span>
-                          <span>{GBP.format(x.price)}</span>
-                        </div>
-                      ))}
-                      <div
-                        style={{
-                          textAlign: "right",
-                          fontWeight: 700,
-                          marginTop: "4px",
-                        }}
-                      >
-                        Total Paid: {GBP.format(total)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+            );
+          })}
         </div>
+
+        {todayLogs.length > 0 && (
+          <>
+            <div style={{ fontWeight: 700, marginTop: "8px" }}>
+              Total {GBP.format(todayTotal)}
+            </div>
+            <button
+              className="btn primary"
+              onClick={makeInvoice}
+              style={{ marginTop: "10px" }}
+            >
+              🧾 Invoice
+            </button>
+          </>
+        )}
+
+        {/* Invoice Section */}
+        {invoices.length > 0 && (
+          <div
+            style={{
+              borderTop: "2px solid #e2e8f0",
+              marginTop: "20px",
+              paddingTop: "10px",
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: "6px" }}>
+              Invoices
+            </div>
+            {invoices.map((inv) => (
+              <div
+                key={inv.id}
+                style={{
+                  background: inv.paid ? "#dcfce7" : "#fff7ed",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  marginBottom: "10px",
+                  padding: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontWeight: 700,
+                    marginBottom: "6px",
+                  }}
+                >
+                  <span>
+                    {inv.owner} — {fmtDate(inv.date)}
+                  </span>
+                  <span>{inv.paid ? "✅ Paid" : "🧾 Unpaid"}</span>
+                </div>
+                {inv.items.map((x) => (
+                  <div
+                    key={x.id}
+                    className="small muted"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span>
+                      {x.horse} — {x.jobLabel}
+                    </span>
+                    <span>{GBP.format(x.price)}</span>
+                  </div>
+                ))}
+                <div
+                  style={{
+                    textAlign: "right",
+                    fontWeight: 700,
+                    marginTop: "6px",
+                  }}
+                >
+                  Total: {GBP.format(inv.total)}
+                </div>
+                {!inv.paid && (
+                  <button
+                    className="btn sm primary"
+                    onClick={() => markInvoicePaid(inv.id)}
+                    style={{ marginTop: "8px" }}
+                  >
+                    💰 Mark Paid
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
 };
+
 
 
 
