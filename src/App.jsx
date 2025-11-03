@@ -145,12 +145,14 @@ export default function App() {
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
 // ── CalendarView ────────────────────────────────
+// ── CalendarView ────────────────────────────────
 const CalendarView = () => {
   const { days, first } = monthMatrix(calendarMonth);
   const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
 
   return (
     <div className="stack">
+      {/* Month navigation */}
       <div className="stack">
         <div className="hstack" style={{ justifyContent: "space-between" }}>
           <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
@@ -199,7 +201,7 @@ const CalendarView = () => {
           return (
             <button
               key={iso}
-              onClick={() => setShowDay(iso)} // ✅ always opens popup
+              onClick={() => setShowDay(iso)} // Opens DayModal
               style={{
                 border: "1px solid #e2e8f0",
                 borderRadius: "10px",
@@ -260,9 +262,125 @@ const CalendarView = () => {
           );
         })}
       </div>
+
+      {/* ── Invoices List ─────────────────────── */}
+      {invoices.length > 0 && (
+        <div
+          style={{
+            borderTop: "2px solid #e2e8f0",
+            marginTop: "30px",
+            paddingTop: "20px",
+            background: "#fff",
+            borderRadius: "12px",
+            padding: "16px",
+          }}
+        >
+          <div
+            className="muted small"
+            style={{ fontWeight: 700, marginBottom: "6px" }}
+          >
+            Invoices
+          </div>
+
+          {invoices.map((inv) => (
+            <div
+              key={inv.id}
+              style={{
+                background: inv.paid ? "#dcfce7" : "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "10px",
+                marginBottom: "12px",
+                padding: "14px 12px",
+              }}
+            >
+              {/* Header */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  fontWeight: 700,
+                  marginBottom: "8px",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: "16px" }}>{inv.owner}</div>
+                  <div className="muted small" style={{ fontSize: "13px" }}>
+                    {inv.range
+                      ? `Dates: ${inv.range}`
+                      : `Date: ${fmtDate(inv.date)}`}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    color: inv.paid ? "#166534" : "#b91c1c",
+                    fontSize: "13px",
+                  }}
+                >
+                  {inv.paid ? "✅ Paid" : "🧾 Unpaid"}
+                </span>
+              </div>
+
+              {/* Job Items */}
+              {inv.items.map((x) => (
+                <div
+                  key={x.id}
+                  className="small muted"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderBottom: "1px dashed #e2e8f0",
+                    padding: "4px 0",
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <span>
+                      <strong>{x.horse}</strong> — {x.jobLabel}
+                    </span>
+                    <span
+                      className="muted"
+                      style={{ fontSize: "12px", color: "#64748b" }}
+                    >
+                      {fmtDate(x.ts)}
+                    </span>
+                  </div>
+                  <span style={{ fontWeight: 600 }}>{GBP.format(x.price)}</span>
+                </div>
+              ))}
+
+              {/* Total */}
+              <div
+                style={{
+                  textAlign: "right",
+                  fontWeight: 700,
+                  marginTop: "8px",
+                  borderTop: "1px solid #e2e8f0",
+                  paddingTop: "6px",
+                }}
+              >
+                Total: {GBP.format(inv.total)}
+              </div>
+
+              {/* Mark Paid Button */}
+              {!inv.paid && (
+                <button
+                  className="btn sm primary"
+                  onClick={() => markInvoicePaid(inv.id)}
+                  style={{ marginTop: "10px", float: "right" }}
+                >
+                  💰 Mark Paid
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
+
 
 // ── DayModal ─────────────────────────────────────
 // ── DayModal with From–To Range ─────────────────────────────────────
