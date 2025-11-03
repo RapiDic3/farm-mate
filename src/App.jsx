@@ -28,6 +28,7 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [paidHistory, setPaidHistory] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [activeHorseId, setActiveHorseId] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [showDay, setShowDay] = useState(null);
@@ -35,6 +36,7 @@ export default function App() {
 
   // ── Load data
   useEffect(() => {
+    setInvoices(JSON.parse(localStorage.getItem("fm_invoices_v1") || "[]"));
     setOwners(JSON.parse(localStorage.getItem(LS.owners) || "[]"));
     setHorses(JSON.parse(localStorage.getItem(LS.horses) || "[]"));
     setLogs(JSON.parse(localStorage.getItem(LS.logs) || "[]"));
@@ -57,6 +59,7 @@ export default function App() {
   }, []);
 
   // ── Save data
+  useEffect(() => localStorage.setItem("fm_invoices_v1", JSON.stringify(invoices)), [invoices]);
   useEffect(() => localStorage.setItem(LS.owners, JSON.stringify(owners)), [owners]);
   useEffect(() => localStorage.setItem(LS.horses, JSON.stringify(horses)), [horses]);
   useEffect(() => localStorage.setItem(LS.logs, JSON.stringify(logs)), [logs]);
@@ -263,14 +266,13 @@ const CalendarView = () => {
 
   // ── DayModal (unchanged full content from your file)
   // keep everything you had for DayModal here, unchanged
-
 const DailyView = () => {
   const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
   const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
+  // Create new invoice
   const makeInvoice = () => {
     if (!todayLogs.length) return alert("No jobs to invoice.");
-    // Group by owner
     const byOwner = {};
     todayLogs.forEach((l) => {
       const h = horseMap[l.horseId];
@@ -293,14 +295,16 @@ const DailyView = () => {
     alert("✅ Invoice created! Scroll down to view or screenshot.");
   };
 
+  // Mark an invoice as paid
   const markInvoicePaid = (id) => {
-    if (!confirm("Mark this invoice as paid?")) return;
     const inv = invoices.find((i) => i.id === id);
     if (!inv) return;
-    // mark invoice + logs as paid
+    if (!confirm(`Mark ${inv.owner}'s invoice as paid?`)) return;
+
     setInvoices((prev) =>
       prev.map((i) => (i.id === id ? { ...i, paid: true } : i))
     );
+
     setLogs((prev) =>
       prev.map((l) =>
         inv.items.some((x) => x.id === l.id) ? { ...l, paid: true } : l
@@ -377,7 +381,9 @@ const DailyView = () => {
               >
                 <div>
                   <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
-                  <span className="muted">({o?.name || "Owner"})</span>
+                  <span className="muted">
+                    ({o?.name || "Owner"}) {l.paid && "✅"}
+                  </span>
                 </div>
                 <div className="badge">{GBP.format(l.price)}</div>
               </div>
@@ -416,7 +422,7 @@ const DailyView = () => {
               <div
                 key={inv.id}
                 style={{
-                  background: inv.paid ? "#dcfce7" : "#fff7ed",
+                  background: inv.paid ? "#dcfce7" : "#fff",
                   border: "1px solid #e2e8f0",
                   borderRadius: "10px",
                   marginBottom: "10px",
@@ -478,6 +484,7 @@ const DailyView = () => {
     </div>
   );
 };
+
 
 
 
