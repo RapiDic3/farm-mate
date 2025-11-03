@@ -246,10 +246,12 @@ export default function App() {
       </div>
     );
   };
-// ── DayModal (fixed multi-job add inside calendar)
+// ── DayModal (multi-job + date-range add inside calendar)
 const DayModal = ({ iso, onClose }) => {
-  const [selectedJobs, setSelectedJobs] = useState([]);
   const [selectedHorseId, setSelectedHorseId] = useState("");
+  const [selectedJobs, setSelectedJobs] = useState([]);
+  const [start, setStart] = useState(iso);
+  const [end, setEnd] = useState(iso);
   const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
   const tot = list.reduce((s, x) => s + Number(x.price || 0), 0);
 
@@ -260,18 +262,50 @@ const DayModal = ({ iso, onClose }) => {
         : [...prev, jobKey]
     );
 
-  const addSelectedJobs = () => {
+  const addJobsAcrossRange = () => {
     if (!selectedHorseId) return alert("Choose a horse first");
     if (selectedJobs.length === 0) return alert("Select at least one job");
+    const s = new Date(start);
+    const e = new Date(end);
+    if (e < s) return alert("End date must be after or same as start date.");
 
-    selectedJobs.forEach((jobKey) => {
-      const job = jobs.find((j) => j.key === jobKey);
-      if (job) logJob(selectedHorseId, job, iso);
+    const days = [];
+    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d));
+    }
+
+    setLogs((prev) => {
+      const out = [...prev];
+      for (const d of days) {
+        const isoDay = toISO(d);
+        for (const jobKey of selectedJobs) {
+          const job = jobs.find((j) => j.key === jobKey);
+          if (!job) continue;
+          const dup = out.some(
+            (l) =>
+              l.horseId === selectedHorseId &&
+              l.jobKey === job.key &&
+              l.ts.slice(0, 10) === isoDay
+          );
+          if (!dup) {
+            out.unshift({
+              id: uid(),
+              horseId: selectedHorseId,
+              jobKey: job.key,
+              jobLabel: job.label,
+              price: Number(job.price || 0),
+              ts: isoDay,
+              paid: false,
+            });
+          }
+        }
+      }
+      return out;
     });
 
+    alert("✅ Jobs added across selected dates!");
     setSelectedJobs([]);
     setSelectedHorseId("");
-    alert("✅ Jobs added for this day!");
   };
 
   return (
@@ -306,6 +340,7 @@ const DayModal = ({ iso, onClose }) => {
           </button>
         </div>
 
+        {/* Existing jobs for that day */}
         {list.length === 0 && <div className="muted small">No jobs on this day.</div>}
         {list.map((l) => {
           const h = horseMap[l.horseId];
@@ -340,7 +375,7 @@ const DayModal = ({ iso, onClose }) => {
           </div>
         )}
 
-        {/* ✅ Multi-job add */}
+        {/* New multi-job + range add */}
         <div
           className="stack"
           style={{
@@ -349,7 +384,21 @@ const DayModal = ({ iso, onClose }) => {
             borderTop: "1px solid #e2e8f0",
           }}
         >
-          <div style={{ fontWeight: 800 }}>Add multiple jobs to {fmtDate(iso)}</div>
+          <div style={{ fontWeight: 800 }}>Add jobs across date range</div>
+
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: "1fr 1fr", gap: "8px" }}
+          >
+            <div>
+              <label className="label">Start</label>
+              <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">End</label>
+              <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </div>
+          </div>
 
           <label className="label">Horse</label>
           <select
@@ -390,9 +439,9 @@ const DayModal = ({ iso, onClose }) => {
           </div>
 
           {selectedJobs.length > 0 && (
-            <button className="btn primary" onClick={addSelectedJobs}>
+            <button className="btn primary" onClick={addJobsAcrossRange}>
               ✅ Add {selectedJobs.length} Job
-              {selectedJobs.length > 1 ? "s" : ""} for {fmtDate(iso)}
+              {selectedJobs.length > 1 ? "s" : ""} for {fmtDate(start)} → {fmtDate(end)}
             </button>
           )}
         </div>
@@ -401,7 +450,6 @@ const DayModal = ({ iso, onClose }) => {
   );
 };
 
-  // ── DailyView ──
   const DailyView = () => {
     const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
     const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
