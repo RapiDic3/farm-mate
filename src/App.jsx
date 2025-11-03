@@ -264,81 +264,197 @@ const CalendarView = () => {
   // ── DayModal (unchanged full content from your file)
   // keep everything you had for DayModal here, unchanged
 
-  // ── DailyView ── (full width now)
-  const DailyView = () => {
-    const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
-    const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
+const DailyView = () => {
+  const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
+  const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
-    const markAllPaid = () => {
-      if (!todayLogs.length) return alert("No jobs to mark paid.");
-      if (!confirm("Mark all today's jobs as paid?")) return;
-      setLogs((prev) =>
-        prev.map((l) =>
-          l.ts.slice(0, 10) === selectedDate ? { ...l, paid: true } : l
-        )
-      );
-    };
+  const markAllPaid = () => {
+    if (!todayLogs.length) return alert("No jobs to mark paid.");
+    if (!confirm("Mark all today's jobs as paid?")) return;
+    setLogs((prev) =>
+      prev.map((l) =>
+        l.ts.slice(0, 10) === selectedDate ? { ...l, paid: true } : l
+      )
+    );
+  };
 
-    return (
-      <div
-        className="daily-view"
+  const paidJobs = todayLogs.filter((l) => l.paid);
+  const paidTotal = paidJobs.reduce((s, x) => s + Number(x.price || 0), 0);
+
+  return (
+    <div
+      className="daily-view"
+      style={{
+        width: "100%", // full width like header
+        minHeight: "calc(100vh - var(--header-height, 60px))",
+        padding: "24px 32px",
+        background: "#f0f9ff",
+        boxSizing: "border-box",
+      }}
+    >
+      <section
+        className="card full"
         style={{
           width: "100%",
-          minHeight: "calc(100vh - 120px)",
-          background: "#f0f9ff",
-          boxSizing: "border-box",
-          padding: "0 0 32px 0",
+          background: "#fff",
+          borderRadius: "0",
+          border: "none",
+          boxShadow: "none",
         }}
       >
-        <section
-          className="card full"
+        {/* Header */}
+        <div
+          className="header hstack"
           style={{
-            width: "100%",
-            background: "#fff",
-            border: "none",
-            boxShadow: "none",
-            borderRadius: "0",
-            padding: "16px 32px",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "12px 0",
+            borderBottom: "2px solid #e2e8f0",
           }}
         >
-          <div
-            className="header hstack"
-            style={{
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "12px 0",
-              borderBottom: "2px solid #e2e8f0",
-            }}
-          >
-            <div style={{ fontWeight: 700, fontSize: "22px" }}>
-              Jobs — {longDate(selectedDate)}
+          <div style={{ fontWeight: 700, fontSize: "20px" }}>
+            Jobs — {longDate(selectedDate)}
+          </div>
+          <div className="hstack">
+            <button
+              className="btn sm"
+              onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+            >
+              ⏪
+            </button>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
+            <button
+              className="btn sm"
+              onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+            >
+              ⏩
+            </button>
+          </div>
+        </div>
+
+        {/* Two-column layout */}
+        <div
+          className="content"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2fr 1.2fr",
+            gap: "32px",
+            alignItems: "start",
+            marginTop: "20px",
+          }}
+        >
+          {/* LEFT SIDE — Add Jobs */}
+          <div className="stack">
+            <div className="muted small" style={{ fontWeight: 700 }}>
+              Select Horse
             </div>
-            <div className="hstack">
-              <button
-                className="btn sm"
-                onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-              >
-                ⏪
+            <select
+              value={activeHorseId}
+              onChange={(e) => setActiveHorseId(e.target.value)}
+            >
+              <option value="">Choose horse</option>
+              {horses.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name} — {ownerMap[h.ownerId]?.name}
+                </option>
+              ))}
+            </select>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
+                gap: "8px",
+                marginTop: "12px",
+              }}
+            >
+              {jobs.map((j) => (
+                <button
+                  key={j.key}
+                  className="btn"
+                  onClick={() => logJob(activeHorseId, j)}
+                >
+                  {j.label}
+                  {j.price ? ` • ${GBP.format(j.price)}` : ""}
+                </button>
+              ))}
+            </div>
+
+            <div className="hstack" style={{ marginTop: "12px" }}>
+              <button className="btn sm" onClick={undoLast}>
+                ↩️ Undo Last
               </button>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-              <button
-                className="btn sm"
-                onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-              >
-                ⏩
+              <button className="btn sm danger" onClick={clearDay}>
+                🗑 Clear Day
               </button>
             </div>
           </div>
 
-          {/* your existing two-column layout and job logic remain here unchanged */}
-        </section>
-      </div>
-    );
-  };
+          {/* RIGHT SIDE — Logs / Totals */}
+          <div className="stack">
+            <div className="muted small" style={{ fontWeight: 700 }}>
+              Jobs Logged
+            </div>
+
+            {todayLogs.length === 0 && (
+              <div className="muted small">No jobs logged today.</div>
+            )}
+
+            {todayLogs.map((l) => {
+              const h = horseMap[l.horseId];
+              const o = h ? ownerMap[h.ownerId] : null;
+              return (
+                <div
+                  key={l.id}
+                  className="rowline small"
+                  style={{ opacity: l.paid ? 0.6 : 1 }}
+                >
+                  <div>
+                    <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
+                    <span className="muted">
+                      ({o?.name || "Owner"}) {l.paid && "✅"}
+                    </span>
+                  </div>
+                  <div className="hstack">
+                    <div className="badge">{GBP.format(l.price)}</div>
+                    <button
+                      className="btn sm danger"
+                      onClick={() => removeLog(l.id)}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {todayLogs.length > 0 && (
+              <div style={{ fontWeight: 700, marginTop: "8px" }}>
+                Total {GBP.format(todayTotal)}
+              </div>
+            )}
+
+            {todayLogs.length > 0 && (
+              <button className="btn primary" onClick={markAllPaid}>
+                ✅ Mark All Paid
+              </button>
+            )}
+
+            {paidJobs.length > 0 && (
+              <div className="muted small">
+                Paid today: {GBP.format(paidTotal)}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
 
   // ── OwnersView (unchanged)
   const OwnersView = () => {
