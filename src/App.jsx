@@ -65,7 +65,7 @@ export default function App() {
 
   const ownerMap = useMemo(() => Object.fromEntries(owners.map((o) => [o.id, o])), [owners]);
   const horseMap = useMemo(() => Object.fromEntries(horses.map((h) => [h.id, h])), [horses]);
-  const goBackToMain = () => setTab("daily"); // ✅ Back button handler
+  const goBackToMain = () => setTab("daily");
 
   const toISO = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0, 10);
   const addDays = (iso, n) => {
@@ -76,8 +76,7 @@ export default function App() {
 
   const logJob = (horseId, job, date = selectedDate) => {
     if (!horseId) return alert("Choose a horse first");
-    let label = job.label,
-      price = job.price;
+    let label = job.label, price = job.price;
     if (job.key === "other") {
       const desc = prompt("Description?");
       if (desc === null) return;
@@ -138,11 +137,11 @@ export default function App() {
     }
     return { days, first };
   };
-
   // ── CalendarView (⚠️ + Back)
   const CalendarView = () => {
     const { days, first } = monthMatrix(calendarMonth);
     const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
+
     return (
       <div className="stack">
         <div className="stack">
@@ -187,7 +186,7 @@ export default function App() {
             const inMonth = d.getMonth() === calendarMonth.getMonth();
             const tot = dayTotal(iso);
             const hasPaid = dayHasPaid(iso);
-            const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot"); // ✅ shoot flag
+            const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
 
             return (
               <button
@@ -206,6 +205,7 @@ export default function App() {
                 }}
               >
                 <div style={{ fontSize: "12px", fontWeight: 700 }}>{d.getDate()}</div>
+
                 {hasShoot && (
                   <div
                     style={{
@@ -220,6 +220,7 @@ export default function App() {
                     ⚠️
                   </div>
                 )}
+
                 {tot > 0 && (
                   <div
                     className="badge"
@@ -234,6 +235,7 @@ export default function App() {
                     {GBP.format(tot)}
                   </div>
                 )}
+
                 {hasPaid && (
                   <div style={{ position: "absolute", top: "4px", right: "6px", fontSize: "14px" }}>
                     💰
@@ -246,9 +248,10 @@ export default function App() {
       </div>
     );
   };
-  // ── DayModal (multi-job select only here)
+
+  // ── DayModal (multi-job select)
   const DayModal = ({ iso, onClose }) => {
-    const [selectedJobs, setSelectedJobs] = useState([]); // ✅ new
+    const [selectedJobs, setSelectedJobs] = useState([]);
     const [rangeHorseId, setRangeHorseId] = useState("");
     const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
     const tot = list.reduce((s, x) => s + Number(x.price || 0), 0);
@@ -289,10 +292,7 @@ export default function App() {
             overflow: "auto",
           }}
         >
-          <div
-            className="hstack"
-            style={{ justifyContent: "space-between", marginBottom: "8px" }}
-          >
+          <div className="hstack" style={{ justifyContent: "space-between", marginBottom: "8px" }}>
             <div style={{ fontWeight: 800 }}>Jobs on {fmtDate(iso)}</div>
             <button className="btn" onClick={onClose}>
               Close
@@ -300,15 +300,12 @@ export default function App() {
           </div>
 
           {list.length === 0 && <div className="muted small">No jobs on this day.</div>}
+
           {list.map((l) => {
             const h = horseMap[l.horseId];
             const o = h ? ownerMap[h.ownerId] : null;
             return (
-              <div
-                key={l.id}
-                className="rowline small"
-                style={{ opacity: l.paid ? 0.6 : 1 }}
-              >
+              <div key={l.id} className="rowline small" style={{ opacity: l.paid ? 0.6 : 1 }}>
                 <div>
                   <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
                   <span className="muted">
@@ -317,16 +314,14 @@ export default function App() {
                 </div>
                 <div className="hstack">
                   <div className="badge">{GBP.format(l.price)}</div>
-                  <button
-                    className="btn sm danger"
-                    onClick={() => removeLog(l.id)}
-                  >
+                  <button className="btn sm danger" onClick={() => removeLog(l.id)}>
                     🗑
                   </button>
                 </div>
               </div>
             );
           })}
+
           {list.length > 0 && (
             <div className="muted" style={{ fontWeight: 700 }}>
               Total {GBP.format(tot)}
@@ -345,10 +340,7 @@ export default function App() {
             <div className="muted small" style={{ fontWeight: 700 }}>
               Add multiple jobs to {fmtDate(iso)}
             </div>
-            <select
-              value={rangeHorseId}
-              onChange={(e) => setRangeHorseId(e.target.value)}
-            >
+            <select value={rangeHorseId} onChange={(e) => setRangeHorseId(e.target.value)}>
               <option value="">Choose horse</option>
               {horses.map((h) => (
                 <option key={h.id} value={h.id}>
@@ -356,6 +348,7 @@ export default function App() {
                 </option>
               ))}
             </select>
+
             <div
               style={{
                 display: "grid",
@@ -378,6 +371,7 @@ export default function App() {
                 </button>
               ))}
             </div>
+
             {selectedJobs.length > 0 && (
               <button className="btn primary" onClick={addSelected}>
                 ✅ Add Selected ({selectedJobs.length})
@@ -393,7 +387,6 @@ export default function App() {
   const DailyView = () => {
     const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
     const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
-
     return (
       <div className="row">
         <section className="card">
@@ -403,10 +396,7 @@ export default function App() {
           >
             <div>Jobs — {longDate(selectedDate)}</div>
             <div className="hstack">
-              <button
-                className="btn sm"
-                onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-              >
+              <button className="btn sm" onClick={() => setSelectedDate(addDays(selectedDate, -1))}>
                 ⏪
               </button>
               <input
@@ -414,14 +404,12 @@ export default function App() {
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
               />
-              <button
-                className="btn sm"
-                onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-              >
+              <button className="btn sm" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>
                 ⏩
               </button>
             </div>
           </div>
+
           <div className="content stack">
             <div
               className="grid"
@@ -429,10 +417,7 @@ export default function App() {
             >
               <div>
                 <label className="label">Horse</label>
-                <select
-                  value={activeHorseId}
-                  onChange={(e) => setActiveHorseId(e.target.value)}
-                >
+                <select value={activeHorseId} onChange={(e) => setActiveHorseId(e.target.value)}>
                   <option value="">Choose a horse</option>
                   {horses.map((h) => (
                     <option key={h.id} value={h.id}>
@@ -442,6 +427,7 @@ export default function App() {
                 </select>
               </div>
             </div>
+
             <div className="grid cols-3 jobs-grid">
               {jobs.map((j) => (
                 <button
@@ -456,6 +442,7 @@ export default function App() {
                 </button>
               ))}
             </div>
+
             <div className="hstack">
               <button className="btn" onClick={undoLast}>
                 Undo Last
@@ -464,6 +451,7 @@ export default function App() {
                 Clear Day
               </button>
             </div>
+
             <div className="stack">
               <div className="small" style={{ fontWeight: 700 }}>
                 Recent
@@ -471,6 +459,7 @@ export default function App() {
               {todayLogs.length === 0 && (
                 <div className="muted small">No jobs logged yet.</div>
               )}
+
               {todayLogs.map((l) => {
                 const h = horseMap[l.horseId];
                 const o = h ? ownerMap[h.ownerId] : null;
@@ -500,6 +489,7 @@ export default function App() {
                   </div>
                 );
               })}
+
               {todayLogs.length > 0 && (
                 <div style={{ fontWeight: 700, marginTop: "8px" }}>
                   Total {GBP.format(todayTotal)}
@@ -511,293 +501,58 @@ export default function App() {
       </div>
     );
   };
-  // ── DayModal (multi-job select only here)
-  const DayModal = ({ iso, onClose }) => {
-    const [selectedJobs, setSelectedJobs] = useState([]); // ✅ new
-    const [rangeHorseId, setRangeHorseId] = useState("");
-    const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
-    const tot = list.reduce((s, x) => s + Number(x.price || 0), 0);
 
-    const toggleJob = (k) =>
-      setSelectedJobs((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
-
-    const addSelected = () => {
-      if (!rangeHorseId) return alert("Choose a horse");
-      if (selectedJobs.length === 0) return alert("Select at least one job");
-      selectedJobs.forEach((k) => {
-        const job = jobs.find((j) => j.key === k);
-        if (job) logJob(rangeHorseId, job, iso);
-      });
-      setSelectedJobs([]);
-      alert("Jobs added.");
-    };
-
-    return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,.4)",
-          display: "grid",
-          placeItems: "center",
-          padding: "16px",
-          zIndex: 100,
-        }}
-      >
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: "16px",
-            width: "min(720px,100%)",
-            padding: "16px",
-            maxHeight: "80vh",
-            overflow: "auto",
-          }}
-        >
-          <div
-            className="hstack"
-            style={{ justifyContent: "space-between", marginBottom: "8px" }}
-          >
-            <div style={{ fontWeight: 800 }}>Jobs on {fmtDate(iso)}</div>
-            <button className="btn" onClick={onClose}>
-              Close
-            </button>
-          </div>
-
-          {list.length === 0 && <div className="muted small">No jobs on this day.</div>}
-          {list.map((l) => {
-            const h = horseMap[l.horseId];
-            const o = h ? ownerMap[h.ownerId] : null;
-            return (
-              <div
-                key={l.id}
-                className="rowline small"
-                style={{ opacity: l.paid ? 0.6 : 1 }}
-              >
-                <div>
-                  <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
-                  <span className="muted">
-                    ({o?.name || "Owner"}) {l.paid && "✅"}
-                  </span>
-                </div>
-                <div className="hstack">
-                  <div className="badge">{GBP.format(l.price)}</div>
-                  <button
-                    className="btn sm danger"
-                    onClick={() => removeLog(l.id)}
-                  >
-                    🗑
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-          {list.length > 0 && (
-            <div className="muted" style={{ fontWeight: 700 }}>
-              Total {GBP.format(tot)}
-            </div>
-          )}
-
-          {/* ✅ Multi-job select */}
-          <div
-            className="stack"
-            style={{
-              marginTop: "12px",
-              paddingTop: "8px",
-              borderTop: "1px solid #e2e8f0",
-            }}
-          >
-            <div className="muted small" style={{ fontWeight: 700 }}>
-              Add multiple jobs to {fmtDate(iso)}
-            </div>
-            <select
-              value={rangeHorseId}
-              onChange={(e) => setRangeHorseId(e.target.value)}
-            >
-              <option value="">Choose horse</option>
-              {horses.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} — {ownerMap[h.ownerId]?.name}
-                </option>
-              ))}
-            </select>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
-                gap: "8px",
-              }}
-            >
-              {jobs.map((j) => (
-                <button
-                  key={j.key}
-                  className="btn"
-                  onClick={() => toggleJob(j.key)}
-                  style={{
-                    background: selectedJobs.includes(j.key) ? "#0ea5e9" : "#fff",
-                    color: selectedJobs.includes(j.key) ? "#fff" : "#000",
-                  }}
-                >
-                  {j.label}
-                  {j.price ? ` • ${GBP.format(j.price)}` : ""}
-                </button>
-              ))}
-            </div>
-            {selectedJobs.length > 0 && (
-              <button className="btn primary" onClick={addSelected}>
-                ✅ Add Selected ({selectedJobs.length})
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ── DailyView ──
-  const DailyView = () => {
-    const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
-    const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
-
-    return (
-      <div className="row">
-        <section className="card">
-          <div
-            className="header hstack"
-            style={{ justifyContent: "space-between", alignItems: "center" }}
-          >
-            <div>Jobs — {longDate(selectedDate)}</div>
-            <div className="hstack">
-              <button
-                className="btn sm"
-                onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-              >
-                ⏪
-              </button>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-              <button
-                className="btn sm"
-                onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-              >
-                ⏩
-              </button>
-            </div>
-          </div>
-          <div className="content stack">
-            <div
-              className="grid"
-              style={{ gridTemplateColumns: "2fr 1fr", gap: "8px", alignItems: "end" }}
-            >
-              <div>
-                <label className="label">Horse</label>
-                <select
-                  value={activeHorseId}
-                  onChange={(e) => setActiveHorseId(e.target.value)}
-                >
-                  <option value="">Choose a horse</option>
-                  {horses.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.name} — {ownerMap[h.ownerId]?.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="grid cols-3 jobs-grid">
-              {jobs.map((j) => (
-                <button
-                  key={j.key}
-                  className="btn"
-                  onClick={() => logJob(activeHorseId, j, selectedDate)}
-                >
-                  <div style={{ display: "grid", placeItems: "center" }}>
-                    <div style={{ fontWeight: 700 }}>{j.label}</div>
-                    <div className="small muted">{GBP.format(j.price)}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="hstack">
-              <button className="btn" onClick={undoLast}>
-                Undo Last
-              </button>
-              <button className="btn danger" onClick={clearDay}>
-                Clear Day
-              </button>
-            </div>
-            <div className="stack">
-              <div className="small" style={{ fontWeight: 700 }}>
-                Recent
-              </div>
-              {todayLogs.length === 0 && (
-                <div className="muted small">No jobs logged yet.</div>
-              )}
-              {todayLogs.map((l) => {
-                const h = horseMap[l.horseId];
-                const o = h ? ownerMap[h.ownerId] : null;
-                return (
-                  <div
-                    key={l.id}
-                    className="rowline small"
-                    style={{ opacity: l.paid ? 0.6 : 1 }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 600 }}>
-                        {l.jobLabel} — {h?.name || "Horse"} {l.paid && "✅"}
-                      </div>
-                      <div className="muted">
-                        {o?.name || "Owner"} • {fmtDate(l.ts)}
-                      </div>
-                    </div>
-                    <div className="hstack">
-                      <div className="badge">{GBP.format(l.price)}</div>
-                      <button
-                        className="btn sm ghost"
-                        onClick={() => removeLog(l.id)}
-                      >
-                        🗑
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              {todayLogs.length > 0 && (
-                <div style={{ fontWeight: 700, marginTop: "8px" }}>
-                  Total {GBP.format(todayTotal)}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      </div>
-    );
-  };
-  // ── Main App Render ──
+  // ── Main App Return ──
   return (
     <div className="container">
-      <header className="top" style={{ background: "#0ea5e9", color: "#fff", padding: "12px", borderRadius: "0 0 12px 12px" }}>
-        <div className="title" style={{ fontWeight: 800, fontSize: "20px" }}>Farm Mate</div>
+      <header
+        className="top"
+        style={{
+          background: "#0ea5e9",
+          color: "#fff",
+          padding: "12px",
+          borderRadius: "0 0 12px 12px",
+        }}
+      >
+        <div className="title" style={{ fontWeight: 800, fontSize: "20px" }}>
+          Farm Mate
+        </div>
+
         <div className="hstack" style={{ marginTop: "8px" }}>
-          <button className={`btn ${tab === "daily" ? "primary" : ""}`} onClick={() => setTab("daily")}>Daily</button>
-          <button className={`btn ${tab === "calendar" ? "primary" : ""}`} onClick={() => setTab("calendar")}>Calendar</button>
-          <button className={`btn ${tab === "owners" ? "primary" : ""}`} onClick={() => setTab("owners")}>Owners</button>
-          <button className={`btn ${tab === "settings" ? "primary" : ""}`} onClick={() => setTab("settings")}>Settings</button>
+          <button
+            className={`btn ${tab === "daily" ? "primary" : ""}`}
+            onClick={() => setTab("daily")}
+          >
+            Daily
+          </button>
+          <button
+            className={`btn ${tab === "calendar" ? "primary" : ""}`}
+            onClick={() => setTab("calendar")}
+          >
+            Calendar
+          </button>
+          <button
+            className={`btn ${tab === "owners" ? "primary" : ""}`}
+            onClick={() => setTab("owners")}
+          >
+            Owners
+          </button>
+          <button
+            className={`btn ${tab === "settings" ? "primary" : ""}`}
+            onClick={() => setTab("settings")}
+          >
+            Settings
+          </button>
         </div>
       </header>
 
       <main style={{ marginTop: "16px" }}>
         {tab === "daily" && <DailyView />}
         {tab === "calendar" && <CalendarView />}
-        {/* Future tabs go here */}
+        {/* Future tabs will go here */}
       </main>
 
       {showDay && <DayModal iso={showDay} onClose={() => setShowDay(null)} />}
     </div>
   );
 }
-
-export default App;
