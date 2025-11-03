@@ -776,3 +776,28 @@ export default function App() {
       </div>
     );
   };
+  // ── Main App Render ──
+  return (
+    <div className="container">
+      <header className="top" style={{ background: "#0ea5e9", color: "#fff", padding: "12px", borderRadius: "0 0 12px 12px" }}>
+        <div className="title" style={{ fontWeight: 800, fontSize: "20px" }}>Farm Mate</div>
+        <div className="hstack" style={{ marginTop: "8px" }}>
+          <button className={`btn ${tab === "daily" ? "primary" : ""}`} onClick={() => setTab("daily")}>Daily</button>
+          <button className={`btn ${tab === "calendar" ? "primary" : ""}`} onClick={() => setTab("calendar")}>Calendar</button>
+          <button className={`btn ${tab === "owners" ? "primary" : ""}`} onClick={() => setTab("owners")}>Owners</button>
+          <button className={`btn ${tab === "settings" ? "primary" : ""}`} onClick={() => setTab("settings")}>Settings</button>
+        </div>
+      </header>
+
+      <main style={{ marginTop: "16px" }}>
+        {tab === "daily" && <DailyView />}
+        {tab === "calendar" && <CalendarView />}
+        {/* Future tabs go here */}
+      </main>
+
+      {showDay && <DayModal iso={showDay} onClose={() => setShowDay(null)} />}
+    </div>
+  );
+}
+
+export default App;
