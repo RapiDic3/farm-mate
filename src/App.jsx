@@ -267,14 +267,31 @@ const CalendarView = () => {
 // ── DayModal ─────────────────────────────────────
 // ── DayModal with From–To Range ─────────────────────────────────────
 const DayModal = ({ iso, onClose }) => {
-const [fromDate, setFromDate] = useState(() => iso);
-const [toDate, setToDate] = useState(() => iso);
-  const [selectedHorse, setSelectedHorse] = useState(activeHorseId || "");
+  // 👇 capture the date the modal was opened and lock it in
+  const [initDate] = useState(() => iso);
+
+  // 👇 use lazy initializers so they only run once
+  const [fromDate, setFromDate] = useState(() => {
+    const saved = localStorage.getItem("fm_last_from");
+    return saved || initDate;
+  });
+  const [toDate, setToDate] = useState(() => {
+    const saved = localStorage.getItem("fm_last_to");
+    return saved || initDate;
+  });
+  const [selectedHorse, setSelectedHorse] = useState(() => {
+    const saved = localStorage.getItem("fm_last_horse");
+    return saved || activeHorseId || "";
+  });
+
   const [previewDates, setPreviewDates] = useState([]);
 
-  // remember last horse globally
+  // remember last horse globally + persist
   useEffect(() => {
-    if (selectedHorse) setActiveHorseId(selectedHorse);
+    if (selectedHorse) {
+      setActiveHorseId(selectedHorse);
+      localStorage.setItem("fm_last_horse", selectedHorse);
+    }
   }, [selectedHorse]);
 
   // generate list of dates between from and to
@@ -288,41 +305,40 @@ const [toDate, setToDate] = useState(() => iso);
       d.setDate(d.getDate() + 1);
     }
     setPreviewDates(range);
+
+    // persist range
+    localStorage.setItem("fm_last_from", fromDate);
+    localStorage.setItem("fm_last_to", toDate);
   }, [fromDate, toDate]);
 
   // gather logs for all dates in range
   const rangeLogs = logs.filter((l) => previewDates.includes(l.ts.slice(0, 10)));
   const total = rangeLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
-const addJob = (job) => {
-  if (!selectedHorse) return alert("Choose a horse first");
+  // 👇 main fix: does not reset from/to/horse after adding jobs
+  const addJob = (job) => {
+    if (!selectedHorse) return alert("Choose a horse first");
 
-  // Use date range if available; fall back to single date
-  const start = fromDate ? new Date(fromDate) : new Date(iso);
-  const end = toDate ? new Date(toDate) : new Date(iso);
+    const start = fromDate ? new Date(fromDate) : new Date(initDate);
+    const end = toDate ? new Date(toDate) : new Date(initDate);
 
-  // Make sure fromDate <= toDate
-  if (end < start) return alert("The 'To' date must be after the 'From' date.");
+    if (end < start) return alert("The 'To' date must be after the 'From' date.");
 
-  // Build an array of all ISO dates between start and end (inclusive)
-  const dates = [];
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const isoStr = toISO(d);
-    dates.push(isoStr);
-  }
+    const dates = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const isoStr = toISO(d);
+      dates.push(isoStr);
+    }
 
-  // Log the job for each day in the range
-  dates.forEach((isoStr) => {
-    logJob(selectedHorse, job, isoStr);
-  });
+    dates.forEach((isoStr) => {
+      logJob(selectedHorse, job, isoStr);
+    });
 
-  // Haptic feedback (no blocking alert)
-  if (navigator.vibrate) navigator.vibrate(15);
+    if (navigator.vibrate) navigator.vibrate(15);
 
-  // Optional: Quick message in console or toast
-  console.log(`✅ ${job.label} added for ${dates.length} day${dates.length > 1 ? "s" : ""}`);
-};
-
+    // ✅ keep modal open and selections intact
+    console.log(`✅ ${job.label} added for ${dates.length} day${dates.length > 1 ? "s" : ""}`);
+  };
 
   const removeJob = (id) => {
     if (!confirm("Remove this job?")) return;
@@ -363,7 +379,8 @@ const addJob = (job) => {
           }}
         >
           <div style={{ fontWeight: 700, fontSize: "18px" }}>
-            Book Jobs — {previewDates.length > 1
+            Book Jobs —{" "}
+            {previewDates.length > 1
               ? `${fmtDate(fromDate)} → ${fmtDate(toDate)}`
               : longDate(fromDate)}
           </div>
@@ -440,9 +457,7 @@ const addJob = (job) => {
         <hr style={{ margin: "10px 0" }} />
 
         {/* Job list for date range */}
-        <div style={{ fontWeight: 700, marginBottom: "6px" }}>
-          Jobs in Range
-        </div>
+        <div style={{ fontWeight: 700, marginBottom: "6px" }}>Jobs in Range</div>
         {rangeLogs.length === 0 && (
           <div className="muted small">No jobs logged yet in this range.</div>
         )}
