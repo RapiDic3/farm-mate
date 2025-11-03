@@ -415,11 +415,19 @@ const DayModal = ({ iso, onClose }) => {
           >
             <div>
               <label className="label">Start</label>
-              <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+              <input
+                type="date"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
             </div>
             <div>
               <label className="label">End</label>
-              <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+              <input
+                type="date"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+              />
             </div>
           </div>
 
@@ -449,10 +457,14 @@ const DayModal = ({ iso, onClose }) => {
                 className="btn"
                 onClick={() => toggleJob(j.key)}
                 style={{
-                  background: selectedJobs.includes(j.key) ? "#0ea5e9" : "#fff",
+                  background: selectedJobs.includes(j.key)
+                    ? "#0ea5e9"
+                    : "#fff",
                   color: selectedJobs.includes(j.key) ? "#fff" : "#000",
                   border:
-                    j.key === "shoot" ? "2px solid #f87171" : "1px solid #e2e8f0",
+                    j.key === "shoot"
+                      ? "2px solid #f87171"
+                      : "1px solid #e2e8f0",
                 }}
               >
                 {j.label}
@@ -464,7 +476,8 @@ const DayModal = ({ iso, onClose }) => {
           {selectedJobs.length > 0 && (
             <button className="btn primary" onClick={addJobsAcrossRange}>
               ✅ Add {selectedJobs.length} Job
-              {selectedJobs.length > 1 ? "s" : ""} for {fmtDate(start)} → {fmtDate(end)}
+              {selectedJobs.length > 1 ? "s" : ""} for {fmtDate(start)} to{" "}
+              {fmtDate(end)}
             </button>
           )}
         </div>
@@ -472,6 +485,7 @@ const DayModal = ({ iso, onClose }) => {
     </div>
   );
 };
+
 
   const DailyView = () => {
     const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
