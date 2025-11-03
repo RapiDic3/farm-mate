@@ -309,10 +309,7 @@ const CalendarView = ({ markInvoicePaid }) => {
           );
         })}
       </div>
-
-      {/* ─────────────────────────────── */}
-      {/* 🧾 Invoices below calendar */}
-      {/* ─────────────────────────────── */}
+      {/* ✅ Invoice Section below calendar */}
       <div
         style={{
           marginTop: "20px",
@@ -324,7 +321,7 @@ const CalendarView = ({ markInvoicePaid }) => {
       >
         <div style={{ fontWeight: 700, marginBottom: "8px" }}>Invoices</div>
 
-        {/* Filter by Owner */}
+        {/* Owner filter */}
         <select
           onChange={(e) => setFilterOwner(e.target.value)}
           value={filterOwner}
@@ -416,7 +413,7 @@ const CalendarView = ({ markInvoicePaid }) => {
       </div>
     </div>
   );
-};
+}; // ✅ make sure you close CalendarView with this
 
 
 // ── DayModal ─────────────────────────────────────
