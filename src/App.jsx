@@ -13,7 +13,6 @@ const longDate = (iso) =>
     year: "numeric",
   });
 
-
 const LS = {
   owners: "fm_owners_v9",
   horses: "fm_horses_v9",
@@ -146,7 +145,7 @@ export default function App() {
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
 // ── CalendarView ────────────────────────────────
-const CalendarPage = () => {
+const CalendarView = () => {
   const { days, first } = monthMatrix(calendarMonth);
   const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
 
