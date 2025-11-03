@@ -296,24 +296,31 @@ const DayModal = ({ iso, onClose }) => {
 
 const addJob = (job) => {
   if (!selectedHorse) return alert("Choose a horse first");
-  if (!fromDate || !toDate) return alert("Please select both a From and To date");
 
-  // Build the full list of ISO dates between fromDate and toDate (inclusive)
-  const start = new Date(fromDate);
-  const end = new Date(toDate);
-  const range = [];
+  // Use date range if available; fall back to single date
+  const start = fromDate ? new Date(fromDate) : new Date(iso);
+  const end = toDate ? new Date(toDate) : new Date(iso);
+
+  // Make sure fromDate <= toDate
+  if (end < start) return alert("The 'To' date must be after the 'From' date.");
+
+  // Build an array of all ISO dates between start and end (inclusive)
+  const dates = [];
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    range.push(toISO(d));
+    const isoStr = toISO(d);
+    dates.push(isoStr);
   }
 
-  // Add the job for each day in the range
-  range.forEach((iso) => logJob(selectedHorse, job, iso));
+  // Log the job for each day in the range
+  dates.forEach((isoStr) => {
+    logJob(selectedHorse, job, isoStr);
+  });
 
-  // Optional quick feedback so you can keep clicking multiple jobs
-  if (navigator.vibrate) navigator.vibrate(10);
+  // Haptic feedback (no blocking alert)
+  if (navigator.vibrate) navigator.vibrate(15);
 
-  // Optional non-blocking message (replace alert)
-  console.log(`Added "${job.label}" for ${range.length} day${range.length > 1 ? "s" : ""}`);
+  // Optional: Quick message in console or toast
+  console.log(`✅ ${job.label} added for ${dates.length} day${dates.length > 1 ? "s" : ""}`);
 };
 
 
