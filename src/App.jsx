@@ -369,33 +369,30 @@ const DayModal = ({ iso, onClose }) => {
                   {l.completed && "✅ Completed"} {l.paid && "💰 Paid"}
                 </span>
               </div>
-              <div className="hstack">
-                <div className="badge">{GBP.format(l.price)}</div>
-                <button
-                  className="btn sm"
-                  onClick={() => markCompleted(l.id)}
-                  style={{
-                    background: l.completed ? "#10b981" : "#e2e8f0",
-                    color: l.completed ? "#fff" : "#000",
-                  }}
-                >
-                  {l.completed ? "Undo" : "Complete"}
-                </button>
-                <button
-                  className="btn sm danger"
-                  onClick={() => removeLog(l.id)}
-                >
-                  🗑
-                </button>
-              </div>
-            </div>
-          );
-        })}
-        {list.length > 0 && (
-          <div className="muted" style={{ fontWeight: 700 }}>
-            Total {GBP.format(tot)}
-          </div>
-        )}
+<div
+  className="hstack"
+  style={{
+    gap: "6px",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",   // ✅ space for all buttons
+    alignItems: "center",
+  }}
+>
+  <div className="badge">{GBP.format(l.price)}</div>
+  <button
+    className="btn sm"
+    onClick={() => markCompleted(l.id)}
+    style={{
+      background: l.completed ? "#10b981" : "#e2e8f0",
+      color: l.completed ? "#fff" : "#000",
+    }}
+  >
+    {l.completed ? "Undo" : "Complete"}
+  </button>
+  <button className="btn sm danger" onClick={() => removeLog(l.id)}>
+    🗑
+  </button>
+</div>
 
         {/* Multi-job + range add */}
         <div
