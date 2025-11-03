@@ -463,7 +463,9 @@ const DailyView = () => {
           className="header hstack"
           style={{ justifyContent: "space-between", alignItems: "center" }}
         >
-          <div style={{ fontWeight: 700 }}>Jobs — {longDate(selectedDate)}</div>
+          <div style={{ fontWeight: 700, fontSize: "18px" }}>
+            Jobs — {longDate(selectedDate)}
+          </div>
           <div className="hstack">
             <button
               className="btn sm"
@@ -490,12 +492,12 @@ const DailyView = () => {
           className="content"
           style={{
             display: "grid",
-            gridTemplateColumns: "2fr 1fr",
-            gap: "24px",
+            gridTemplateColumns: "2fr 1.2fr",
+            gap: "32px",
             alignItems: "start",
           }}
         >
-          {/* LEFT SIDE */}
+          {/* LEFT SIDE — Add Jobs */}
           <div className="stack">
             <div
               className="grid"
@@ -521,7 +523,7 @@ const DailyView = () => {
               </div>
             </div>
 
-            {/* Job buttons */}
+            {/* Job Buttons */}
             <div className="grid cols-3 jobs-grid" style={{ marginTop: "12px" }}>
               {jobs.map((j) => (
                 <button
@@ -547,21 +549,29 @@ const DailyView = () => {
             </div>
           </div>
 
-          {/* RIGHT SIDE — wider and pushed over */}
+          {/* RIGHT SIDE — Expanded Recent/Invoice */}
           <div
             className="stack"
             style={{
-              background: "#f1f5f9",
-              padding: "16px",
-              borderRadius: "12px",
-              border: "1px solid #e2e8f0",
-              minWidth: "280px",
+              background: "#ffffff",
+              padding: "20px",
+              borderRadius: "16px",
+              border: "1px solid #dbeafe",
+              boxShadow: "0 4px 12px rgba(14,165,233,0.15)",
+              minWidth: "350px",
               marginLeft: "auto",
+              transform: "translateX(20px)",
             }}
           >
             <div
               className="small"
-              style={{ fontWeight: 700, borderBottom: "1px solid #e2e8f0", paddingBottom: "4px" }}
+              style={{
+                fontWeight: 800,
+                borderBottom: "2px solid #0ea5e9",
+                paddingBottom: "6px",
+                color: "#0ea5e9",
+                fontSize: "16px",
+              }}
             >
               Recent Jobs
             </div>
@@ -569,56 +579,85 @@ const DailyView = () => {
             {todayLogs.length === 0 && (
               <div className="muted small">No jobs logged yet.</div>
             )}
-            {todayLogs.map((l) => {
-              const h = horseMap[l.horseId];
-              const o = h ? ownerMap[h.ownerId] : null;
-              return (
-                <div
-                  key={l.id}
-                  className="rowline small"
-                  style={{
-                    opacity: l.paid ? 0.6 : 1,
-                    background: "#fff",
-                    border: "1px solid #e2e8f0",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 600 }}>
-                      {l.jobLabel} — {h?.name || "Horse"} {l.paid && "✅"}
+
+            <div className="stack" style={{ gap: "10px" }}>
+              {todayLogs.map((l) => {
+                const h = horseMap[l.horseId];
+                const o = h ? ownerMap[h.ownerId] : null;
+                return (
+                  <div
+                    key={l.id}
+                    className="rowline small"
+                    style={{
+                      opacity: l.paid ? 0.6 : 1,
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "10px",
+                      padding: "10px 12px",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: "14px",
+                          color: "#0f172a",
+                        }}
+                      >
+                        {l.jobLabel} — {h?.name || "Horse"} {l.paid && "✅"}
+                      </div>
+                      <div
+                        className="muted"
+                        style={{ fontSize: "13px", color: "#64748b" }}
+                      >
+                        {o?.name || "Owner"} • {fmtDate(l.ts)}
+                      </div>
                     </div>
-                    <div className="muted">
-                      {o?.name || "Owner"} • {fmtDate(l.ts)}
+                    <div className="hstack" style={{ justifyContent: "end" }}>
+                      <div
+                        className="badge"
+                        style={{
+                          fontSize: "13px",
+                          background: "#0ea5e9",
+                          color: "#fff",
+                        }}
+                      >
+                        {GBP.format(l.price)}
+                      </div>
+                      <button
+                        className="btn sm ghost"
+                        onClick={() => removeLog(l.id)}
+                      >
+                        🗑
+                      </button>
                     </div>
                   </div>
-                  <div className="hstack">
-                    <div className="badge">{GBP.format(l.price)}</div>
-                    <button
-                      className="btn sm ghost"
-                      onClick={() => removeLog(l.id)}
-                    >
-                      🗑
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
 
             {todayLogs.length > 0 && (
               <>
                 <div
                   style={{
-                    fontWeight: 700,
-                    marginTop: "8px",
+                    fontWeight: 800,
+                    marginTop: "10px",
                     textAlign: "right",
-                    borderTop: "1px solid #e2e8f0",
-                    paddingTop: "4px",
+                    borderTop: "2px solid #e2e8f0",
+                    paddingTop: "6px",
+                    fontSize: "15px",
                   }}
                 >
                   Total {GBP.format(todayTotal)}
                 </div>
                 <button
                   className="btn primary block"
-                  style={{ marginTop: "6px" }}
+                  style={{
+                    marginTop: "10px",
+                    padding: "10px",
+                    fontSize: "15px",
+                    fontWeight: "700",
+                  }}
                   onClick={markAllPaid}
                 >
                   💰 Mark All as Paid
@@ -630,12 +669,19 @@ const DailyView = () => {
               <div
                 className="stack"
                 style={{
-                  marginTop: "12px",
+                  marginTop: "16px",
                   borderTop: "2px solid #0ea5e9",
-                  paddingTop: "8px",
+                  paddingTop: "10px",
+                  fontSize: "14px",
                 }}
               >
-                <div style={{ fontWeight: 700, color: "#0ea5e9" }}>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    color: "#0ea5e9",
+                    marginBottom: "4px",
+                  }}
+                >
                   Invoice Summary
                 </div>
                 {paidJobs.map((p) => (
@@ -643,7 +689,14 @@ const DailyView = () => {
                     {p.jobLabel} — {fmtDate(p.ts)} • {GBP.format(p.price)}
                   </div>
                 ))}
-                <div style={{ fontWeight: 700, marginTop: "4px" }}>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    marginTop: "8px",
+                    color: "#0f172a",
+                    textAlign: "right",
+                  }}
+                >
                   Paid Total: {GBP.format(paidTotal)}
                 </div>
               </div>
@@ -654,6 +707,7 @@ const DailyView = () => {
     </div>
   );
 };
+
 
 
 
