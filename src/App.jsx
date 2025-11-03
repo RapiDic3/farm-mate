@@ -144,20 +144,10 @@ export default function App() {
   const jobsOnDate = (iso) => logs.filter((l) => l.ts.slice(0, 10) === iso);
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
-
-  
-//  CalendarView new info added
- // ── CalendarView ──
+// ── CalendarView ────────────────────────────────
 const CalendarView = () => {
-  const [selectedDates, setSelectedDates] = useState([]);
   const { days, first } = monthMatrix(calendarMonth);
   const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
-
-  const toggleDate = (iso) => {
-    setSelectedDates((prev) =>
-      prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso]
-    );
-  };
 
   return (
     <div className="stack">
@@ -205,22 +195,17 @@ const CalendarView = () => {
           const tot = dayTotal(iso);
           const hasPaid = dayHasPaid(iso);
           const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
-          const selected = selectedDates.includes(iso);
 
           return (
             <button
               key={iso}
-              onClick={() => toggleDate(iso)}
+              onClick={() => setShowDay(iso)} // ✅ always opens popup
               style={{
-                border: selected ? "2px solid #0ea5e9" : "1px solid #e2e8f0",
+                border: "1px solid #e2e8f0",
                 borderRadius: "10px",
                 padding: "6px",
                 minHeight: "56px",
-                background: selected
-                  ? "#e0f2fe"
-                  : inMonth
-                  ? "#fff"
-                  : "#f1f5f9",
+                background: inMonth ? "#fff" : "#f1f5f9",
                 color: inMonth ? "#0f172a" : "#94a3b8",
                 textAlign: "left",
                 position: "relative",
@@ -275,47 +260,31 @@ const CalendarView = () => {
           );
         })}
       </div>
-
-      {selectedDates.length > 0 && (
-        <div style={{ marginTop: "12px" }}>
-          <button
-            className="btn primary"
-            onClick={() => setShowDay(selectedDates)}
-          >
-            📅 Add Jobs ({selectedDates.length} day{selectedDates.length > 1 && "s"})
-          </button>
-          <button
-            className="btn sm"
-            onClick={() => setSelectedDates([])}
-            style={{ marginLeft: "6px" }}
-          >
-            ❌ Clear
-          </button>
-        </div>
-      )}
     </div>
   );
 };
 
-// ── DayModal ──
+// ── DayModal ─────────────────────────────────────
 const DayModal = ({ iso, onClose }) => {
-  // iso can be a string or array of ISO strings
-  const daysSelected = Array.isArray(iso) ? iso : [iso];
-  const [horseId, setHorseId] = useState("");
+  const [date, setDate] = useState(iso);
+  const [selectedHorse, setSelectedHorse] = useState(activeHorseId || ""); // remembers last
+  const dayLogs = logs.filter((l) => l.ts.slice(0, 10) === date);
+  const total = dayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
-  const allLogs = logs.filter((l) => daysSelected.includes(l.ts.slice(0, 10)));
+  // remember last horse globally
+  useEffect(() => {
+    if (selectedHorse) setActiveHorseId(selectedHorse);
+  }, [selectedHorse]);
 
   const addJob = (job) => {
-    if (!horseId) return alert("Choose a horse first");
-    daysSelected.forEach((d) => logJob(horseId, job, d));
+    if (!selectedHorse) return alert("Choose a horse first");
+    logJob(selectedHorse, job, date); // can add multiple jobs
   };
 
   const removeJob = (id) => {
     if (!confirm("Remove this job?")) return;
     setLogs((prev) => prev.filter((l) => l.id !== id));
   };
-
-  const total = allLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
   return (
     <div
@@ -337,7 +306,7 @@ const DayModal = ({ iso, onClose }) => {
           borderRadius: "12px",
           padding: "20px",
           width: "90%",
-          maxWidth: "520px",
+          maxWidth: "500px",
           maxHeight: "80vh",
           overflowY: "auto",
         }}
@@ -351,23 +320,36 @@ const DayModal = ({ iso, onClose }) => {
           }}
         >
           <div style={{ fontWeight: 700, fontSize: "18px" }}>
-            {daysSelected.length === 1
-              ? longDate(daysSelected[0])
-              : `${daysSelected.length} days selected`}
+            {longDate(date)}
           </div>
           <button className="btn sm danger" onClick={onClose}>
             ✖
           </button>
         </div>
 
-        {/* Horse selector */}
-        <div style={{ marginTop: "12px" }}>
+        {/* Date picker */}
+        <div style={{ marginTop: "10px" }}>
+          <label className="small muted">Change Date:</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            style={{
+              width: "100%",
+              marginTop: "4px",
+              marginBottom: "12px",
+            }}
+          />
+        </div>
+
+        {/* Horse selector (remembers last) */}
+        <div>
           <div className="muted small" style={{ fontWeight: 700 }}>
             Select Horse
           </div>
           <select
-            value={horseId}
-            onChange={(e) => setHorseId(e.target.value)}
+            value={selectedHorse}
+            onChange={(e) => setSelectedHorse(e.target.value)}
             style={{ width: "100%", marginBottom: "10px" }}
           >
             <option value="">Choose horse</option>
@@ -400,10 +382,10 @@ const DayModal = ({ iso, onClose }) => {
 
         {/* Jobs list */}
         <div style={{ fontWeight: 700, marginBottom: "6px" }}>Jobs Logged</div>
-        {allLogs.length === 0 && (
-          <div className="muted small">No jobs logged yet.</div>
+        {dayLogs.length === 0 && (
+          <div className="muted small">No jobs logged for this day.</div>
         )}
-        {allLogs.map((l) => {
+        {dayLogs.map((l) => {
           const h = horseMap[l.horseId];
           const o = h ? ownerMap[h.ownerId] : null;
           return (
@@ -431,7 +413,7 @@ const DayModal = ({ iso, onClose }) => {
           );
         })}
 
-        {allLogs.length > 0 && (
+        {dayLogs.length > 0 && (
           <div style={{ textAlign: "right", fontWeight: 700, marginTop: "10px" }}>
             Total: {GBP.format(total)}
           </div>
