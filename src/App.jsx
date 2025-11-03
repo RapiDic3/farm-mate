@@ -66,7 +66,7 @@ export default function App() {
   // ── Maps
   const ownerMap = useMemo(() => Object.fromEntries(owners.map((o) => [o.id, o])), [owners]);
   const horseMap = useMemo(() => Object.fromEntries(horses.map((h) => [h.id, h])), [horses]);
-  const goBackToMain = () => setTab("daily");
+  const goBackToMain = () => setTab("");
 
   // ── Helpers
   const toISO = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0, 10);
@@ -281,11 +281,26 @@ const DailyView = () => {
   const paidJobs = todayLogs.filter((l) => l.paid);
   const paidTotal = paidJobs.reduce((s, x) => s + Number(x.price || 0), 0);
 
+  // ✅ Build full paid history (invoices)
+  const groupedByOwner = useMemo(() => {
+    const groups = {};
+    logs
+      .filter((l) => l.paid)
+      .forEach((l) => {
+        const h = horseMap[l.horseId];
+        const o = h ? ownerMap[h.ownerId] : null;
+        if (!o) return;
+        if (!groups[o.name]) groups[o.name] = [];
+        groups[o.name].push({ ...l, horse: h?.name });
+      });
+    return groups;
+  }, [logs, horseMap, ownerMap]);
+
   return (
     <div
       className="daily-view"
       style={{
-        width: "100%", // full width like header
+        width: "100%",
         minHeight: "calc(100vh - var(--header-height, 60px))",
         padding: "24px 32px",
         background: "#f0f9ff",
@@ -394,7 +409,7 @@ const DailyView = () => {
             </div>
           </div>
 
-          {/* RIGHT SIDE — Logs / Totals */}
+          {/* RIGHT SIDE — Logged Jobs + Invoices */}
           <div className="stack">
             <div className="muted small" style={{ fontWeight: 700 }}>
               Jobs Logged
@@ -449,12 +464,71 @@ const DailyView = () => {
                 Paid today: {GBP.format(paidTotal)}
               </div>
             )}
+
+            {/* ✅ Invoice summary below total */}
+            {Object.keys(groupedByOwner).length > 0 && (
+              <div
+                style={{
+                  borderTop: "1px solid #e2e8f0",
+                  marginTop: "16px",
+                  paddingTop: "8px",
+                }}
+              >
+                <div className="muted small" style={{ fontWeight: 700 }}>
+                  Invoice History
+                </div>
+                {Object.entries(groupedByOwner).map(([ownerName, items]) => {
+                  const total = items.reduce(
+                    (sum, x) => sum + Number(x.price || 0),
+                    0
+                  );
+                  return (
+                    <div
+                      key={ownerName}
+                      style={{
+                        marginTop: "6px",
+                        background: "#f8fafc",
+                        borderRadius: "8px",
+                        padding: "6px 8px",
+                      }}
+                    >
+                      <div style={{ fontWeight: 700 }}>{ownerName}</div>
+                      {items.slice(0, 5).map((x) => (
+                        <div
+                          key={x.id}
+                          className="small muted"
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <span>
+                            {fmtDate(x.ts)} — {x.horse} — {x.jobLabel}
+                          </span>
+                          <span>{GBP.format(x.price)}</span>
+                        </div>
+                      ))}
+                      <div
+                        style={{
+                          textAlign: "right",
+                          fontWeight: 700,
+                          marginTop: "4px",
+                        }}
+                      >
+                        Total: {GBP.format(total)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </section>
     </div>
   );
 };
+
 
   // ── OwnersView (unchanged)
   const OwnersView = () => {
