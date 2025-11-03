@@ -927,8 +927,8 @@ const DailyView = () => {
 //✅ Totals update automatically
 //✅ “Mark Paid” works from this view too
   
-  const OwnersView = () => 
-    const addOwner = () => {
+const OwnersView = () => {
+  const [openOwnerId, setOpenOwnerId] = useState(null);
       const name = prompt("Owner name?");
       if (!name) return;
       setOwners([...owners, { id: uid(), name }]);
