@@ -249,131 +249,193 @@ export default function App() {
     );
   };
 
-  // ── DayModal ──
-  const DayModal = ({ iso, onClose }) => {
-    const [selectedJobs, setSelectedJobs] = useState([]);
-    const [rangeHorseId, setRangeHorseId] = useState("");
-    const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
-    const tot = list.reduce((s, x) => s + Number(x.price || 0), 0);
+// ── DayModal ──
+const DayModal = ({ iso, onClose }) => {
+  const [selectedJobs, setSelectedJobs] = useState([]);
+  const [rangeHorseId, setRangeHorseId] = useState("");
+  const [rangeStart, setRangeStart] = useState(iso);
+  const [rangeEnd, setRangeEnd] = useState(iso);
+  const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
+  const tot = list.reduce((s, x) => s + Number(x.price || 0), 0);
 
-    const toggleJob = (k) =>
-      setSelectedJobs((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
+  const toggleJob = (k) =>
+    setSelectedJobs((p) =>
+      p.includes(k) ? p.filter((x) => x !== k) : [...p, k]
+    );
 
-    const addSelected = () => {
-      if (!rangeHorseId) return alert("Choose a horse");
-      if (selectedJobs.length === 0) return alert("Select at least one job");
+  // ✅ Add jobs for single or multiple dates
+  const addSelectedRange = () => {
+    if (!rangeHorseId) return alert("Choose a horse");
+    if (selectedJobs.length === 0) return alert("Select at least one job");
+    if (!rangeStart || !rangeEnd) return alert("Pick a valid date range");
+
+    const start = new Date(rangeStart);
+    const end = new Date(rangeEnd);
+    const current = new Date(start);
+
+    while (current <= end) {
+      const dayISO = current.toISOString().slice(0, 10);
       selectedJobs.forEach((k) => {
         const job = jobs.find((j) => j.key === k);
-        if (job) logJob(rangeHorseId, job, iso);
+        if (job) logJob(rangeHorseId, job, dayISO);
       });
-      setSelectedJobs([]);
-      alert("Jobs added.");
-    };
+      current.setDate(current.getDate() + 1);
+    }
 
-    return (
+    setSelectedJobs([]);
+    alert("✅ Jobs added for all selected days!");
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.4)",
+        display: "grid",
+        placeItems: "center",
+        padding: "16px",
+        zIndex: 100,
+      }}
+    >
       <div
         style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,.4)",
-          display: "grid",
-          placeItems: "center",
+          background: "#fff",
+          borderRadius: "16px",
+          width: "min(720px,100%)",
           padding: "16px",
-          zIndex: 100,
+          maxHeight: "80vh",
+          overflow: "auto",
         }}
       >
         <div
+          className="hstack"
+          style={{ justifyContent: "space-between", marginBottom: "8px" }}
+        >
+          <div style={{ fontWeight: 800 }}>Jobs on {fmtDate(iso)}</div>
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+
+        {/* Existing jobs list */}
+        {list.length === 0 && (
+          <div className="muted small">No jobs on this day.</div>
+        )}
+        {list.map((l) => {
+          const h = horseMap[l.horseId];
+          const o = h ? ownerMap[h.ownerId] : null;
+          return (
+            <div
+              key={l.id}
+              className="rowline small"
+              style={{ opacity: l.paid ? 0.6 : 1 }}
+            >
+              <div>
+                <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
+                <span className="muted">
+                  ({o?.name || "Owner"}) {l.paid && "✅"}
+                </span>
+              </div>
+              <div className="hstack">
+                <div className="badge">{GBP.format(l.price)}</div>
+                <button
+                  className="btn sm danger"
+                  onClick={() => removeLog(l.id)}
+                >
+                  🗑
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {list.length > 0 && (
+          <div className="muted" style={{ fontWeight: 700 }}>
+            Total {GBP.format(tot)}
+          </div>
+        )}
+
+        {/* ✅ Multi-job + multi-date selection */}
+        <div
+          className="stack"
           style={{
-            background: "#fff",
-            borderRadius: "16px",
-            width: "min(720px,100%)",
-            padding: "16px",
-            maxHeight: "80vh",
-            overflow: "auto",
+            marginTop: "12px",
+            paddingTop: "8px",
+            borderTop: "1px solid #e2e8f0",
           }}
         >
-          <div
-            className="hstack"
-            style={{ justifyContent: "space-between", marginBottom: "8px" }}
+          <div className="muted small" style={{ fontWeight: 700 }}>
+            Add multiple jobs — choose horse & date range
+          </div>
+
+          <select
+            value={rangeHorseId}
+            onChange={(e) => setRangeHorseId(e.target.value)}
           >
-            <div style={{ fontWeight: 800 }}>Jobs on {fmtDate(iso)}</div>
-            <button className="btn" onClick={onClose}>
-              Close
-            </button>
+            <option value="">Choose horse</option>
+            {horses.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name} — {ownerMap[h.ownerId]?.name}
+              </option>
+            ))}
+          </select>
+
+          {/* ✅ Date range inputs */}
+          <div className="hstack" style={{ gap: "8px" }}>
+            <div>
+              <label className="small">Start</label>
+              <input
+                type="date"
+                value={rangeStart}
+                onChange={(e) => setRangeStart(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="small">End</label>
+              <input
+                type="date"
+                value={rangeEnd}
+                onChange={(e) => setRangeEnd(e.target.value)}
+              />
+            </div>
           </div>
 
-          {list.length === 0 && <div className="muted small">No jobs on this day.</div>}
-          {list.map((l) => {
-            const h = horseMap[l.horseId];
-            const o = h ? ownerMap[h.ownerId] : null;
-            return (
-              <div key={l.id} className="rowline small" style={{ opacity: l.paid ? 0.6 : 1 }}>
-                <div>
-                  <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
-                  <span className="muted">
-                    ({o?.name || "Owner"}) {l.paid && "✅"}
-                  </span>
-                </div>
-                <div className="hstack">
-                  <div className="badge">{GBP.format(l.price)}</div>
-                  <button className="btn sm danger" onClick={() => removeLog(l.id)}>
-                    🗑
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-          {list.length > 0 && (
-            <div className="muted" style={{ fontWeight: 700 }}>
-              Total {GBP.format(tot)}
-            </div>
-          )}
-
-          {/* Multi-job select */}
-          <div className="stack" style={{ marginTop: "12px", paddingTop: "8px", borderTop: "1px solid #e2e8f0" }}>
-            <div className="muted small" style={{ fontWeight: 700 }}>
-              Add multiple jobs to {fmtDate(iso)}
-            </div>
-            <select value={rangeHorseId} onChange={(e) => setRangeHorseId(e.target.value)}>
-              <option value="">Choose horse</option>
-              {horses.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} — {ownerMap[h.ownerId]?.name}
-                </option>
-              ))}
-            </select>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
-                gap: "8px",
-              }}
-            >
-              {jobs.map((j) => (
-                <button
-                  key={j.key}
-                  className="btn"
-                  onClick={() => toggleJob(j.key)}
-                  style={{
-                    background: selectedJobs.includes(j.key) ? "#0ea5e9" : "#fff",
-                    color: selectedJobs.includes(j.key) ? "#fff" : "#000",
-                  }}
-                >
-                  {j.label}
-                  {j.price ? ` • ${GBP.format(j.price)}` : ""}
-                </button>
-              ))}
-            </div>
-            {selectedJobs.length > 0 && (
-              <button className="btn primary" onClick={addSelected}>
-                ✅ Add Selected ({selectedJobs.length})
+          {/* ✅ Job buttons */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
+              gap: "8px",
+            }}
+          >
+            {jobs.map((j) => (
+              <button
+                key={j.key}
+                className="btn"
+                onClick={() => toggleJob(j.key)}
+                style={{
+                  background: selectedJobs.includes(j.key)
+                    ? "#0ea5e9"
+                    : "#fff",
+                  color: selectedJobs.includes(j.key) ? "#fff" : "#000",
+                }}
+              >
+                {j.label}
+                {j.price ? ` • ${GBP.format(j.price)}` : ""}
               </button>
-            )}
+            ))}
           </div>
+
+          {selectedJobs.length > 0 && (
+            <button className="btn primary" onClick={addSelectedRange}>
+              ✅ Add Selected ({selectedJobs.length})
+            </button>
+          )}
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   // ── DailyView ──
   const DailyView = () => {
