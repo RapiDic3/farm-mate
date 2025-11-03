@@ -266,305 +266,192 @@ const CalendarView = () => {
 
   // ── DayModal (unchanged full content from your file)
   // keep everything you had for DayModal here, unchanged
-const DailyView = () => {
-  const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
-  const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
+// ── DayModal ──
+const DayModal = ({ iso, onClose }) => {
+  const [selectedJobs, setSelectedJobs] = useState([]);
+  const [rangeHorseId, setRangeHorseId] = useState("");
+  const [rangeStart, setRangeStart] = useState(iso);
+  const [rangeEnd, setRangeEnd] = useState(iso);
 
-  // ─── Create a new invoice from today's un-invoiced jobs ───────────────
-  const makeInvoice = () => {
-    if (!todayLogs.length) return alert("No jobs to invoice.");
+  const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
+  const tot = list.reduce((s, x) => s + Number(x.price || 0), 0);
 
-    const byOwner = {};
-    todayLogs.forEach((l) => {
-      const h = horseMap[l.horseId];
-      const o = h ? ownerMap[h.ownerId] : null;
-      if (!o) return;
-      if (!byOwner[o.name]) byOwner[o.name] = [];
-      byOwner[o.name].push({ ...l, horse: h?.name });
-    });
-
-    const newInvoices = Object.entries(byOwner).map(([owner, items]) => ({
-      id: uid(),
-      date: selectedDate,
-      owner,
-      items,
-      total: items.reduce((sum, x) => sum + Number(x.price || 0), 0),
-      paid: false,
-    }));
-
-    setInvoices((prev) => [...newInvoices, ...prev]);
-    alert("✅ Invoice created! Scroll down to view or screenshot.");
-  };
-
-  // ─── Mark invoice as paid and update logs ─────────────────────────────
-  const markInvoicePaid = (id) => {
-    const inv = invoices.find((i) => i.id === id);
-    if (!inv) return;
-    if (!confirm(`Mark ${inv.owner}'s invoice as paid?`)) return;
-
-    setInvoices((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, paid: true } : i))
+  const toggleJob = (k) =>
+    setSelectedJobs((p) =>
+      p.includes(k) ? p.filter((x) => x !== k) : [...p, k]
     );
-    setLogs((prev) =>
-      prev.map((l) =>
-        inv.items.some((x) => x.id === l.id) ? { ...l, paid: true } : l
-      )
-    );
+
+  const addSelectedRange = () => {
+    if (!rangeHorseId) return alert("Choose a horse");
+    if (selectedJobs.length === 0) return alert("Select at least one job");
+    if (!rangeStart || !rangeEnd) return alert("Pick a valid date range");
+
+    const start = new Date(rangeStart);
+    const end = new Date(rangeEnd);
+    const current = new Date(start);
+
+    while (current <= end) {
+      const dayISO = current.toISOString().slice(0, 10);
+      selectedJobs.forEach((k) => {
+        const job = jobs.find((j) => j.key === k);
+        if (job) logJob(rangeHorseId, job, dayISO);
+      });
+      current.setDate(current.getDate() + 1);
+    }
+
+    setSelectedJobs([]);
+    alert("✅ Jobs added for all selected days!");
   };
 
   return (
     <div
-      className="daily-view"
       style={{
-        width: "100%",
-        minHeight: "calc(100vh - var(--header-height, 60px))",
-        padding: "24px 32px",
-        background: "#f0f9ff",
-        boxSizing: "border-box",
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.4)",
+        display: "grid",
+        placeItems: "center",
+        padding: "16px",
+        zIndex: 100,
       }}
     >
-      <section
-        className="card full"
+      <div
         style={{
-          width: "100%",
           background: "#fff",
-          borderRadius: "0",
-          border: "none",
-          boxShadow: "none",
+          borderRadius: "16px",
+          width: "min(720px,100%)",
+          padding: "16px",
+          maxHeight: "80vh",
+          overflow: "auto",
         }}
       >
-        {/* Header */}
         <div
-          className="header hstack"
-          style={{
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "12px 0",
-            borderBottom: "2px solid #e2e8f0",
-          }}
+          className="hstack"
+          style={{ justifyContent: "space-between", marginBottom: "8px" }}
         >
-          <div style={{ fontWeight: 700, fontSize: "20px" }}>
-            Jobs — {longDate(selectedDate)}
-          </div>
-          <div className="hstack">
-            <button
-              className="btn sm"
-              onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-            >
-              ⏪
-            </button>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
-            <button
-              className="btn sm"
-              onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-            >
-              ⏩
-            </button>
-          </div>
+          <div style={{ fontWeight: 800 }}>Jobs on {fmtDate(iso)}</div>
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
         </div>
 
-        {/* Two-column layout */}
+        {/* Existing jobs list */}
+        {list.length === 0 && (
+          <div className="muted small">No jobs on this day.</div>
+        )}
+        {list.map((l) => {
+          const h = horseMap[l.horseId];
+          const o = h ? ownerMap[h.ownerId] : null;
+          return (
+            <div
+              key={l.id}
+              className="rowline small"
+              style={{ opacity: l.paid ? 0.6 : 1 }}
+            >
+              <div>
+                <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
+                <span className="muted">
+                  ({o?.name || "Owner"}) {l.paid && "✅"}
+                </span>
+              </div>
+              <div className="hstack">
+                <div className="badge">{GBP.format(l.price)}</div>
+                <button
+                  className="btn sm danger"
+                  onClick={() => removeLog(l.id)}
+                >
+                  🗑
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {list.length > 0 && (
+          <div className="muted" style={{ fontWeight: 700 }}>
+            Total {GBP.format(tot)}
+          </div>
+        )}
+
+        {/* Multi-job + multi-date selection */}
         <div
-          className="content"
+          className="stack"
           style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1.2fr",
-            gap: "32px",
-            alignItems: "start",
-            marginTop: "20px",
+            marginTop: "12px",
+            paddingTop: "8px",
+            borderTop: "1px solid #e2e8f0",
           }}
         >
-          {/* LEFT SIDE — Add Jobs */}
-          <div className="stack">
-            <div className="muted small" style={{ fontWeight: 700 }}>
-              Select Horse
-            </div>
-            <select
-              value={activeHorseId}
-              onChange={(e) => setActiveHorseId(e.target.value)}
-            >
-              <option value="">Choose horse</option>
-              {horses.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} — {ownerMap[h.ownerId]?.name}
-                </option>
-              ))}
-            </select>
+          <div className="muted small" style={{ fontWeight: 700 }}>
+            Add multiple jobs — choose horse & date range
+          </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
-                gap: "8px",
-                marginTop: "12px",
-              }}
-            >
-              {jobs.map((j) => (
-                <button
-                  key={j.key}
-                  className="btn"
-                  onClick={() => logJob(activeHorseId, j)}
-                >
-                  {j.label}
-                  {j.price ? ` • ${GBP.format(j.price)}` : ""}
-                </button>
-              ))}
-            </div>
+          <select
+            value={rangeHorseId}
+            onChange={(e) => setRangeHorseId(e.target.value)}
+          >
+            <option value="">Choose horse</option>
+            {horses.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name} — {ownerMap[h.ownerId]?.name}
+              </option>
+            ))}
+          </select>
 
-            <div className="hstack" style={{ marginTop: "12px" }}>
-              <button className="btn sm" onClick={undoLast}>
-                ↩️ Undo Last
-              </button>
-              <button className="btn sm danger" onClick={clearDay}>
-                🗑 Clear Day
-              </button>
+          <div className="hstack" style={{ gap: "8px" }}>
+            <div>
+              <label className="small">Start</label>
+              <input
+                type="date"
+                value={rangeStart}
+                onChange={(e) => setRangeStart(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="small">End</label>
+              <input
+                type="date"
+                value={rangeEnd}
+                onChange={(e) => setRangeEnd(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* RIGHT SIDE — Job Logs, Invoice, and Paid History */}
-          <div className="stack">
-            <div className="muted small" style={{ fontWeight: 700 }}>
-              Jobs Logged
-            </div>
-
-            {todayLogs.length === 0 && (
-              <div className="muted small">No jobs logged today.</div>
-            )}
-
-            {todayLogs.map((l) => {
-              const h = horseMap[l.horseId];
-              const o = h ? ownerMap[h.ownerId] : null;
-              return (
-                <div
-                  key={l.id}
-                  className="rowline small"
-                  style={{ opacity: l.paid ? 0.6 : 1 }}
-                >
-                  <div>
-                    <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
-                    <span className="muted">
-                      ({o?.name || "Owner"}) {l.paid && "✅"}
-                    </span>
-                  </div>
-                  <div className="hstack">
-                    <div className="badge">{GBP.format(l.price)}</div>
-                    <button
-                      className="btn sm danger"
-                      onClick={() => removeLog(l.id)}
-                    >
-                      🗑
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {todayLogs.length > 0 && (
-              <>
-                <div style={{ fontWeight: 700, marginTop: "8px" }}>
-                  Total {GBP.format(todayTotal)}
-                </div>
-                <button
-                  className="btn primary"
-                  onClick={makeInvoice}
-                  style={{ marginTop: "10px" }}
-                >
-                  🧾 Invoice
-                </button>
-              </>
-            )}
-
-            {/* INVOICE LIST */}
-            {invoices.length > 0 && (
-              <div
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
+              gap: "8px",
+            }}
+          >
+            {jobs.map((j) => (
+              <button
+                key={j.key}
+                className="btn"
+                onClick={() => toggleJob(j.key)}
                 style={{
-                  borderTop: "1px solid #e2e8f0",
-                  marginTop: "20px",
-                  paddingTop: "10px",
+                  background: selectedJobs.includes(j.key)
+                    ? "#0ea5e9"
+                    : "#fff",
+                  color: selectedJobs.includes(j.key) ? "#fff" : "#000",
                 }}
               >
-                <div
-                  className="muted small"
-                  style={{ fontWeight: 700, marginBottom: "6px" }}
-                >
-                  Invoices
-                </div>
-
-                {invoices.map((inv) => (
-                  <div
-                    key={inv.id}
-                    style={{
-                      background: inv.paid ? "#dcfce7" : "#fff",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "10px",
-                      marginBottom: "10px",
-                      padding: "10px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        fontWeight: 700,
-                        marginBottom: "6px",
-                      }}
-                    >
-                      <span>
-                        {inv.owner} — {fmtDate(inv.date)}
-                      </span>
-                      <span>{inv.paid ? "✅ Paid" : "🧾 Unpaid"}</span>
-                    </div>
-
-                    {inv.items.map((x) => (
-                      <div
-                        key={x.id}
-                        className="small muted"
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <span>
-                          {x.horse} — {x.jobLabel}
-                        </span>
-                        <span>{GBP.format(x.price)}</span>
-                      </div>
-                    ))}
-
-                    <div
-                      style={{
-                        textAlign: "right",
-                        fontWeight: 700,
-                        marginTop: "6px",
-                      }}
-                    >
-                      Total: {GBP.format(inv.total)}
-                    </div>
-
-                    {!inv.paid && (
-                      <button
-                        className="btn sm primary"
-                        onClick={() => markInvoicePaid(inv.id)}
-                        style={{ marginTop: "8px" }}
-                      >
-                        💰 Mark Paid
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                {j.label}
+                {j.price ? ` • ${GBP.format(j.price)}` : ""}
+              </button>
+            ))}
           </div>
+
+          {selectedJobs.length > 0 && (
+            <button className="btn primary" onClick={addSelectedRange}>
+              ✅ Add Selected ({selectedJobs.length})
+            </button>
+          )}
         </div>
-      </section>
+      </div>
     </div>
   );
 };
+
 
 
 
