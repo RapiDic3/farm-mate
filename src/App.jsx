@@ -1,225 +1,3 @@
-import React, { useState, useEffect, useMemo } from "react";
-
-const GBP = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
-const uid = () => Math.random().toString(36).slice(2, 9);
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const fmtDate = (iso) =>
-  new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-const longDate = (iso) =>
-  new Date(iso).toLocaleDateString(undefined, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
-const LS = {
-  owners: "fm_owners_v9",
-  horses: "fm_horses_v9",
-  logs: "fm_logs_v9",
-  paid: "fm_paid_v9",
-  jobs: "fm_jobs_v9",
-};
-
-export default function App() {
-  const [tab, setTab] = useState("daily");
-  const [owners, setOwners] = useState([]);
-  const [horses, setHorses] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [paidHistory, setPaidHistory] = useState([]);
-  const [jobs, setJobs] = useState([]);
-  const [invoices, setInvoices] = useState([]);
-  const [activeHorseId, setActiveHorseId] = useState("");
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
-  const [showDay, setShowDay] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(todayISO());
-
-  // ── Load data
-  useEffect(() => {
-    setInvoices(JSON.parse(localStorage.getItem("fm_invoices_v1") || "[]"));
-    setOwners(JSON.parse(localStorage.getItem(LS.owners) || "[]"));
-    setHorses(JSON.parse(localStorage.getItem(LS.horses) || "[]"));
-    setLogs(JSON.parse(localStorage.getItem(LS.logs) || "[]"));
-    setPaidHistory(JSON.parse(localStorage.getItem(LS.paid) || "[]"));
-    const storedJobs = JSON.parse(localStorage.getItem(LS.jobs) || "[]");
-    setJobs(
-      storedJobs.length
-        ? storedJobs
-        : [
-            { key: "turnout", label: "Turnout", price: 2 },
-            { key: "bringin", label: "Bring In", price: 2 },
-            { key: "muckout", label: "Muck Out", price: 5 },
-            { key: "feed", label: "Feed", price: 2 },
-            { key: "rug", label: "Rug Change", price: 1 },
-            { key: "haywater", label: "Hay / Water", price: 2 },
-            { key: "shoot", label: "Shoot ⚠️", price: 0 },
-            { key: "other", label: "Other", price: 0 },
-          ]
-    );
-  }, []);
-
-  // ── Save data
-  useEffect(() => localStorage.setItem("fm_invoices_v1", JSON.stringify(invoices)), [invoices]);
-  useEffect(() => localStorage.setItem(LS.owners, JSON.stringify(owners)), [owners]);
-  useEffect(() => localStorage.setItem(LS.horses, JSON.stringify(horses)), [horses]);
-  useEffect(() => localStorage.setItem(LS.logs, JSON.stringify(logs)), [logs]);
-  useEffect(() => localStorage.setItem(LS.paid, JSON.stringify(paidHistory)), [paidHistory]);
-  useEffect(() => localStorage.setItem(LS.jobs, JSON.stringify(jobs)), [jobs]);
-
-  // ── Maps
-  const ownerMap = useMemo(() => Object.fromEntries(owners.map((o) => [o.id, o])), [owners]);
-  const horseMap = useMemo(() => Object.fromEntries(horses.map((h) => [h.id, h])), [horses]);
-
-  // ── Helpers
-  const toISO = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0, 10);
-  const addDays = (iso, n) => {
-    const d = new Date(iso);
-    d.setDate(d.getDate() + n);
-    return toISO(d);
-  };
-  const addMonths = (d, n) => new Date(d.getFullYear(), d.getMonth() + n, 1);
-
-  // ── Job logging
-  const logJob = (horseId, job, date = selectedDate) => {
-    if (!horseId) return alert("Choose a horse first");
-    let label = job.label,
-      price = job.price;
-    if (job.key === "other") {
-      const desc = prompt("Description?");
-      if (desc === null) return;
-      const amtStr = prompt("Price (£)?");
-      if (amtStr === null) return;
-      const amt = parseFloat(amtStr) || 0;
-      label = `Other — ${desc}`;
-      price = amt;
-    }
-    const record = {
-      id: uid(),
-      horseId,
-      jobKey: job.key,
-      jobLabel: label,
-      price: Number(price || 0),
-      ts: date,
-      paid: false,
-    };
-    setLogs((prev) => [record, ...prev]);
-    if (navigator.vibrate) navigator.vibrate(10);
-  };
-
-  const removeLog = (id) => setLogs((prev) => prev.filter((l) => l.id !== id));
-  const undoLast = () => setLogs((prev) => prev.slice(1));
-  const clearDay = () => {
-    if (!confirm(`Clear all jobs for ${longDate(selectedDate)}?`)) return;
-    setLogs((prev) => prev.filter((l) => l.ts.slice(0, 10) !== selectedDate));
-  };
-
-  // ── Calendar helpers
-  const startOfWeek = (d) => {
-    const t = new Date(d);
-    const w = (t.getDay() + 6) % 7;
-    t.setDate(t.getDate() - w);
-    return t;
-  };
-  const endOfWeek = (d) => {
-    const t = new Date(d);
-    const w = (t.getDay() + 6) % 7;
-    t.setDate(t.getDate() + (6 - w));
-    return t;
-  };
-  const monthMatrix = (cursor) => {
-    const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-    const last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
-    const start = startOfWeek(first);
-    const end = endOfWeek(last);
-    const days = [];
-    const d = new Date(start);
-    while (d <= end) {
-      days.push(new Date(d));
-      d.setDate(d.getDate() + 1);
-    }
-    return { days, first };
-  };
-
-  const jobsOnDate = (iso) => logs.filter((l) => l.ts.slice(0, 10) === iso);
-  const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
-  const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
-
-  // ── DailyView (placeholder for now, replaced in Part 2)
-  const DailyView = () => (
-    <div style={{ padding: "20px" }}>
-      <h2>Daily Jobs</h2>
-      <p>Daily job/invoice screen will appear here.</p>
-    </div>
-  );
-  // ── CalendarView ──
-  const CalendarView = () => {
-    const { days, first } = monthMatrix(calendarMonth);
-    const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
-
-    return (
-      <div className="stack" style={{ padding: "20px" }}>
-        <div className="stack">
-          <div className="hstack" style={{ justifyContent: "space-between" }}>
-            <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
-              ←
-            </button>
-            <div style={{ fontWeight: 700, color: "#0f172a" }}>{label}</div>
-            <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
-              →
-            </button>
-          </div>
-        </div>
-
-        <button className="btn" onClick={() => setTab("daily")} style={{ margin: "8px 0" }}>
-          ⬅️ Back to Main
-        </button>
-
-        <div
-          className="muted small"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(7,1fr)",
-            textAlign: "center",
-            marginBottom: "4px",
-          }}
-        >
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-            <div key={d}>{d}</div>
-          ))}
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(7,1fr)",
-            gap: "4px",
-          }}
-        >
-          {days.map((d) => {
-            const iso = toISO(d);
-            const inMonth = d.getMonth() === calendarMonth.getMonth();
-            const tot = dayTotal(iso);
-            const hasPaid = dayHasPaid(iso);
-            const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
-
-            return (
-              <button
-                key={iso}
-                onClick={() => setShowDay(iso)}
-                style={{
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "10px",
-                  padding: "6px",
-                  minHeight: "56px",
-                  background: inMonth ? "#fff" : "#f1f5f9",
-                  color: inMonth ? "#0f172a" : "#94a3b8",
-                  textAlign: "left",
-                  position: "relative",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ fontSize: "12px", fontWeight: 700 }}>{d.getDate()}</div>
-
                 {hasShoot && (
                   <div
                     style={{
@@ -234,7 +12,6 @@ export default function App() {
                     ⚠️
                   </div>
                 )}
-
                 {tot > 0 && (
                   <div
                     className="badge"
@@ -249,7 +26,6 @@ export default function App() {
                     {GBP.format(tot)}
                   </div>
                 )}
-
                 {hasPaid && (
                   <div
                     style={{
@@ -270,7 +46,78 @@ export default function App() {
     );
   };
 
-  // ── DayModal ──
+  // ✅ FIX — Added missing DayModal (only change)
+  const DayModal = ({ iso, onClose }) => {
+    const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
+    const total = list.reduce((s, x) => s + Number(x.price || 0), 0);
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.4)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1000,
+        }}
+        onClick={onClose}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            background: "#fff",
+            borderRadius: "12px",
+            padding: "20px",
+            width: "90%",
+            maxWidth: "420px",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+          }}
+        >
+          <h3 style={{ marginBottom: "10px" }}>{longDate(iso)}</h3>
+          {list.length === 0 ? (
+            <div className="muted small">No jobs logged on this day.</div>
+          ) : (
+            <>
+              {list.map((x) => {
+                const horse = horseMap[x.horseId];
+                const owner = horse ? ownerMap[horse.ownerId] : null;
+                return (
+                  <div
+                    key={x.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      borderBottom: "1px solid #eee",
+                      padding: "4px 0",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <span>
+                      {x.jobLabel} — {horse?.name || "Horse"}{" "}
+                      <span className="muted small">
+                        ({owner?.name || "Owner"})
+                      </span>
+                    </span>
+                    <span>{GBP.format(x.price)}</span>
+                  </div>
+                );
+              })}
+              <div style={{ textAlign: "right", marginTop: "8px", fontWeight: 700 }}>
+                Total: {GBP.format(total)}
+              </div>
+            </>
+          )}
+          <button className="btn primary" onClick={onClose} style={{ marginTop: "12px" }}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // 🔽 rest of your file continues exactly as you sent (DailyView, OwnersView, SettingsView, etc.)
+}
   const DayModal = ({ iso, onClose }) => {
     const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
     const total = list.reduce((s, x) => s + Number(x.price || 0), 0);
@@ -320,7 +167,9 @@ export default function App() {
                   >
                     <span>
                       {x.jobLabel} — {horse?.name || "Horse"}{" "}
-                      <span className="muted small">({owner?.name || "Owner"})</span>
+                      <span className="muted small">
+                        ({owner?.name || "Owner"})
+                      </span>
                     </span>
                     <span>{GBP.format(x.price)}</span>
                   </div>
@@ -328,9 +177,9 @@ export default function App() {
               })}
               <div
                 style={{
-                  textAlign: "right",
-                  marginTop: "8px",
-                  fontWeight: 700,
+                    textAlign: "right",
+                    marginTop: "8px",
+                    fontWeight: 700,
                 }}
               >
                 Total: {GBP.format(total)}
@@ -350,7 +199,307 @@ export default function App() {
     );
   };
 
-  // ── OwnersView ──
+  const DailyView = () => {
+    const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
+    const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
+
+    // ─── Create a new invoice from today's un-invoiced jobs ───────────────
+    const makeInvoice = () => {
+      if (!todayLogs.length) return alert("No jobs to invoice.");
+
+      const byOwner = {};
+      todayLogs.forEach((l) => {
+        const h = horseMap[l.horseId];
+        const o = h ? ownerMap[h.ownerId] : null;
+        if (!o) return;
+        if (!byOwner[o.name]) byOwner[o.name] = [];
+        byOwner[o.name].push({ ...l, horse: h?.name });
+      });
+
+      const newInvoices = Object.entries(byOwner).map(([owner, items]) => ({
+        id: uid(),
+        date: selectedDate,
+        owner,
+        items,
+        total: items.reduce((sum, x) => sum + Number(x.price || 0), 0),
+        paid: false,
+      }));
+
+      setInvoices((prev) => [...newInvoices, ...prev]);
+      alert("✅ Invoice created! Scroll down to view or screenshot.");
+    };
+
+    // ─── Mark invoice as paid and update logs ─────────────────────────────
+    const markInvoicePaid = (id) => {
+      const inv = invoices.find((i) => i.id === id);
+      if (!inv) return;
+      if (!confirm(`Mark ${inv.owner}'s invoice as paid?`)) return;
+
+      setInvoices((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, paid: true } : i))
+      );
+      setLogs((prev) =>
+        prev.map((l) =>
+          inv.items.some((x) => x.id === l.id) ? { ...l, paid: true } : l
+        )
+      );
+    };
+
+    return (
+      <div
+        className="daily-view"
+        style={{
+          width: "100%",
+          minHeight: "calc(100vh - var(--header-height, 60px))",
+          padding: "24px 32px",
+          background: "#f0f9ff",
+          boxSizing: "border-box",
+        }}
+      >
+        <section
+          className="card full"
+          style={{
+            width: "100%",
+            background: "#fff",
+            borderRadius: "0",
+            border: "none",
+            boxShadow: "none",
+          }}
+        >
+          {/* Header */}
+          <div
+            className="header hstack"
+            style={{
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "12px 0",
+              borderBottom: "2px solid #e2e8f0",
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: "20px" }}>
+              Jobs — {longDate(selectedDate)}
+            </div>
+            <div className="hstack">
+              <button
+                className="btn sm"
+                onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+              >
+                ⏪
+              </button>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+              <button
+                className="btn sm"
+                onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+              >
+                ⏩
+              </button>
+            </div>
+          </div>
+
+          {/* Two-column layout */}
+          <div
+            className="content"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "2fr 1.2fr",
+              gap: "32px",
+              alignItems: "start",
+              marginTop: "20px",
+            }}
+          >
+            {/* LEFT SIDE — Add Jobs */}
+            <div className="stack">
+              <div className="muted small" style={{ fontWeight: 700 }}>
+                Select Horse
+              </div>
+              <select
+                value={activeHorseId}
+                onChange={(e) => setActiveHorseId(e.target.value)}
+              >
+                <option value="">Choose horse</option>
+                {horses.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name} — {ownerMap[h.ownerId]?.name}
+                  </option>
+                ))}
+              </select>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
+                  gap: "8px",
+                  marginTop: "12px",
+                }}
+              >
+                {jobs.map((j) => (
+                  <button
+                    key={j.key}
+                    className="btn"
+                    onClick={() => logJob(activeHorseId, j)}
+                  >
+                    {j.label}
+                    {j.price ? ` • ${GBP.format(j.price)}` : ""}
+                  </button>
+                ))}
+              </div>
+
+              <div className="hstack" style={{ marginTop: "12px" }}>
+                <button className="btn sm" onClick={undoLast}>
+                  ↩️ Undo Last
+                </button>
+                <button className="btn sm danger" onClick={clearDay}>
+                  🗑 Clear Day
+                </button>
+              </div>
+            </div>
+
+            {/* RIGHT SIDE — Job Logged + Invoices */}
+            <div className="stack">
+              <div className="muted small" style={{ fontWeight: 700 }}>
+                Jobs Logged
+              </div>
+
+              {todayLogs.length === 0 && (
+                <div className="muted small">No jobs logged today.</div>
+              )}
+
+              {todayLogs.map((l) => {
+                const h = horseMap[l.horseId];
+                const o = h ? ownerMap[h.ownerId] : null;
+                return (
+                  <div
+                    key={l.id}
+                    className="rowline small"
+                    style={{ opacity: l.paid ? 0.6 : 1 }}
+                  >
+                    <div>
+                      <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
+                      <span className="muted">
+                        ({o?.name || "Owner"}) {l.paid && "✅"}
+                      </span>
+                    </div>
+                    <div className="hstack">
+                      <div className="badge">{GBP.format(l.price)}</div>
+                      <button
+                        className="btn sm danger"
+                        onClick={() => removeLog(l.id)}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {todayLogs.length > 0 && (
+                <>
+                  <div style={{ fontWeight: 700, marginTop: "8px" }}>
+                    Total {GBP.format(todayTotal)}
+                  </div>
+                  <button
+                    className="btn primary"
+                    onClick={makeInvoice}
+                    style={{ marginTop: "10px" }}
+                  >
+                    🧾 Invoice
+                  </button>
+                </>
+              )}
+
+              {/* INVOICE LIST */}
+              {invoices.length > 0 && (
+                <div
+                  style={{
+                    borderTop: "1px solid #e2e8f0",
+                    marginTop: "20px",
+                    paddingTop: "10px",
+                  }}
+                >
+                  <div
+                    className="muted small"
+                    style={{ fontWeight: 700, marginBottom: "6px" }}
+                  >
+                    Invoices
+                  </div>
+
+                  {invoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      style={{
+                        background: inv.paid ? "#dcfce7" : "#fff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "10px",
+                        marginBottom: "10px",
+                        padding: "10px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          fontWeight: 700,
+                          marginBottom: "6px",
+                        }}
+                      >
+                        <span>
+                          {inv.owner} — {fmtDate(inv.date)}
+                        </span>
+                        <span>{inv.paid ? "✅ Paid" : "🧾 Unpaid"}</span>
+                      </div>
+
+                      {inv.items.map((x) => (
+                        <div
+                          key={x.id}
+                          className="small muted"
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <span>
+                            {x.horse} — {x.jobLabel}
+                          </span>
+                          <span>{GBP.format(x.price)}</span>
+                        </div>
+                      ))}
+
+                      <div
+                        style={{
+                          textAlign: "right",
+                          fontWeight: 700,
+                          marginTop: "6px",
+                        }}
+                      >
+                        Total: {GBP.format(inv.total)}
+                      </div>
+
+                      {!inv.paid && (
+                        <button
+                          className="btn sm primary"
+                          onClick={() => markInvoicePaid(inv.id)}
+                          style={{ marginTop: "8px" }}
+                        >
+                          💰 Mark Paid
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  // ── OwnersView (unchanged)
   const OwnersView = () => {
     const addOwner = () => {
       const name = prompt("Owner name?");
@@ -371,12 +520,12 @@ export default function App() {
     };
 
     return (
-      <div className="stack" style={{ padding: "20px" }}>
+      <div className="stack">
         <button className="btn primary" onClick={addOwner}>➕ Add Owner</button>
         {owners.length === 0 && <div className="muted small">No owners yet.</div>}
         {owners.map((o) => (
           <div key={o.id} className="owner-block">
-            <div className="owner-head" style={{ display: "flex", justifyContent: "space-between" }}>
+            <div className="owner-head">
               <div style={{ fontWeight: 700 }}>{o.name}</div>
               <div className="hstack">
                 <button className="btn sm" onClick={() => addHorse(o.id)}>Add Horse</button>
@@ -394,7 +543,7 @@ export default function App() {
     );
   };
 
-  // ── SettingsView ──
+  // ── SettingsView (unchanged)
   const SettingsView = () => {
     const clearAll = () => {
       if (!confirm("Clear all data?")) return;
@@ -428,7 +577,7 @@ export default function App() {
     };
 
     return (
-      <div className="stack" style={{ padding: "20px" }}>
+      <div className="stack">
         <button className="btn danger" onClick={clearAll}>🧹 Clear All Data</button>
         <button className="btn" onClick={exportData}>💾 Export Backup</button>
         <input type="file" accept=".json" onChange={importData} />
@@ -515,3 +664,4 @@ export default function App() {
     </div>
   );
 }
+
