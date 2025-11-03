@@ -384,27 +384,15 @@ const CalendarView = () => {
 
 // ── DayModal ─────────────────────────────────────
 // ── DayModal with From–To Range ─────────────────────────────────────
+// ── DayModal with From–To Range + Invoicing ─────────────────────────────────────
 const DayModal = ({ iso, onClose }) => {
-  // 👇 capture the date the modal was opened and lock it in
   const [initDate] = useState(() => iso);
-
-  // 👇 use lazy initializers so they only run once
-  const [fromDate, setFromDate] = useState(() => {
-    const saved = localStorage.getItem("fm_last_from");
-    return saved || initDate;
-  });
-  const [toDate, setToDate] = useState(() => {
-    const saved = localStorage.getItem("fm_last_to");
-    return saved || initDate;
-  });
-  const [selectedHorse, setSelectedHorse] = useState(() => {
-    const saved = localStorage.getItem("fm_last_horse");
-    return saved || activeHorseId || "";
-  });
-
+  const [fromDate, setFromDate] = useState(() => localStorage.getItem("fm_last_from") || initDate);
+  const [toDate, setToDate] = useState(() => localStorage.getItem("fm_last_to") || initDate);
+  const [selectedHorse, setSelectedHorse] = useState(() => localStorage.getItem("fm_last_horse") || activeHorseId || "");
   const [previewDates, setPreviewDates] = useState([]);
 
-  // remember last horse globally + persist
+  // Persist horse selection globally
   useEffect(() => {
     if (selectedHorse) {
       setActiveHorseId(selectedHorse);
@@ -412,7 +400,7 @@ const DayModal = ({ iso, onClose }) => {
     }
   }, [selectedHorse]);
 
-  // generate list of dates between from and to
+  // Generate date range
   useEffect(() => {
     const start = new Date(fromDate);
     const end = new Date(toDate);
@@ -423,45 +411,95 @@ const DayModal = ({ iso, onClose }) => {
       d.setDate(d.getDate() + 1);
     }
     setPreviewDates(range);
-
-    // persist range
     localStorage.setItem("fm_last_from", fromDate);
     localStorage.setItem("fm_last_to", toDate);
   }, [fromDate, toDate]);
 
-  // gather logs for all dates in range
+  // Logs for range
   const rangeLogs = logs.filter((l) => previewDates.includes(l.ts.slice(0, 10)));
   const total = rangeLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
-  // 👇 main fix: does not reset from/to/horse after adding jobs
+  // Add Job across range
   const addJob = (job) => {
     if (!selectedHorse) return alert("Choose a horse first");
 
-    const start = fromDate ? new Date(fromDate) : new Date(initDate);
-    const end = toDate ? new Date(toDate) : new Date(initDate);
-
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
     if (end < start) return alert("The 'To' date must be after the 'From' date.");
 
-    const dates = [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const isoStr = toISO(d);
-      dates.push(isoStr);
+      logJob(selectedHorse, job, toISO(d));
     }
-
-    dates.forEach((isoStr) => {
-      logJob(selectedHorse, job, isoStr);
-    });
-
     if (navigator.vibrate) navigator.vibrate(15);
-
-    // ✅ keep modal open and selections intact
-    console.log(`✅ ${job.label} added for ${dates.length} day${dates.length > 1 ? "s" : ""}`);
   };
 
+  // Remove a logged job
   const removeJob = (id) => {
     if (!confirm("Remove this job?")) return;
     setLogs((prev) => prev.filter((l) => l.id !== id));
   };
+
+  // ✅ Create invoice from date range
+  const makeInvoiceFromRange = () => {
+    const rangeLogs = logs.filter((l) => previewDates.includes(l.ts.slice(0, 10)));
+    if (!rangeLogs.length) return alert("No jobs in this range to invoice.");
+
+    const byOwner = {};
+    rangeLogs.forEach((l) => {
+      const h = horseMap[l.horseId];
+      const o = h ? ownerMap[h.ownerId] : null;
+      if (!o) return;
+      if (!byOwner[o.name]) byOwner[o.name] = [];
+      byOwner[o.name].push({ ...l, horse: h?.name });
+    });
+
+    const newInvoices = Object.entries(byOwner).map(([owner, items]) => ({
+      id: uid(),
+      date: todayISO(),
+      owner,
+      items,
+      total: items.reduce((sum, x) => sum + Number(x.price || 0), 0),
+      paid: false,
+      range:
+        previewDates.length > 1
+          ? `${fmtDate(fromDate)} → ${fmtDate(toDate)}`
+          : fmtDate(fromDate),
+    }));
+
+    setInvoices((prev) => [...newInvoices, ...prev]);
+    alert(`✅ Created ${newInvoices.length} invoice(s) for this period.`);
+  };
+
+  // Mark invoice as paid
+  const markInvoicePaid = (id) => {
+    const inv = invoices.find((i) => i.id === id);
+    if (!inv) return;
+    if (!confirm(`Mark ${inv.owner}'s invoice as paid?`)) return;
+
+    setInvoices((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, paid: true } : i))
+    );
+    setLogs((prev) =>
+      prev.map((l) =>
+        inv.items.some((x) => x.id === l.id) ? { ...l, paid: true } : l
+      )
+    );
+  };
+
+  // Filter invoices for this range
+  const rangeInvoices = invoices.filter((inv) => {
+    if (inv.range) {
+      const [start, end] = inv.range.split("→").map((s) => s.trim());
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      return previewDates.some((d) => {
+        const dt = new Date(d);
+        return dt >= startDate && dt <= endDate;
+      });
+    } else {
+      return previewDates.includes(inv.date);
+    }
+  });
 
   return (
     <div
@@ -508,31 +546,14 @@ const DayModal = ({ iso, onClose }) => {
         </div>
 
         {/* Date range pickers */}
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            marginTop: "12px",
-            marginBottom: "12px",
-          }}
-        >
+        <div style={{ display: "flex", gap: "8px", margin: "12px 0" }}>
           <div style={{ flex: 1 }}>
             <label className="small muted">From:</label>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              style={{ width: "100%" }}
-            />
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={{ width: "100%" }} />
           </div>
           <div style={{ flex: 1 }}>
             <label className="small muted">To:</label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              style={{ width: "100%" }}
-            />
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} style={{ width: "100%" }} />
           </div>
         </div>
 
@@ -574,51 +595,112 @@ const DayModal = ({ iso, onClose }) => {
 
         <hr style={{ margin: "10px 0" }} />
 
-        {/* Job list for date range */}
+        {/* Jobs in Range */}
         <div style={{ fontWeight: 700, marginBottom: "6px" }}>Jobs in Range</div>
-        {rangeLogs.length === 0 && (
+        {rangeLogs.length === 0 ? (
           <div className="muted small">No jobs logged yet in this range.</div>
+        ) : (
+          rangeLogs.map((l) => {
+            const h = horseMap[l.horseId];
+            const o = h ? ownerMap[h.ownerId] : null;
+            return (
+              <div
+                key={l.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "6px",
+                  fontSize: "14px",
+                }}
+              >
+                <div>
+                  <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
+                  <span className="muted small">
+                    ({o?.name || "Owner"}) — {fmtDate(l.ts)}
+                  </span>
+                </div>
+                <div className="hstack" style={{ gap: "6px" }}>
+                  <span>{GBP.format(l.price)}</span>
+                  <button className="btn sm danger" onClick={() => removeJob(l.id)}>
+                    🗑
+                  </button>
+                </div>
+              </div>
+            );
+          })
         )}
 
-        {rangeLogs.map((l) => {
-          const h = horseMap[l.horseId];
-          const o = h ? ownerMap[h.ownerId] : null;
-          return (
-            <div
-              key={l.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "6px",
-                fontSize: "14px",
-              }}
-            >
-              <div>
-                <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
-                <span className="muted small">
-                  ({o?.name || "Owner"}) — {fmtDate(l.ts)}
-                </span>
-              </div>
-              <div className="hstack" style={{ gap: "6px" }}>
-                <span>{GBP.format(l.price)}</span>
-                <button className="btn sm danger" onClick={() => removeJob(l.id)}>
-                  🗑
-                </button>
-              </div>
-            </div>
-          );
-        })}
-
+        {/* Total + Create Invoice */}
         {rangeLogs.length > 0 && (
-          <div
-            style={{
-              textAlign: "right",
-              fontWeight: 700,
-              marginTop: "10px",
-            }}
-          >
-            Total: {GBP.format(total)}
+          <>
+            <div style={{ textAlign: "right", fontWeight: 700, marginTop: "10px" }}>
+              Total: {GBP.format(total)}
+            </div>
+            <button className="btn primary" onClick={makeInvoiceFromRange} style={{ marginTop: "10px", float: "right" }}>
+              🧾 Generate Invoice
+            </button>
+          </>
+        )}
+
+        {/* Invoices in Range */}
+        {rangeInvoices.length > 0 && (
+          <div style={{ borderTop: "2px solid #e2e8f0", marginTop: "40px", paddingTop: "10px" }}>
+            <div style={{ fontWeight: 700, marginBottom: "6px" }}>Invoices in Range</div>
+            {rangeInvoices.map((inv) => (
+              <div
+                key={inv.id}
+                style={{
+                  background: inv.paid ? "#dcfce7" : "#fff",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  marginBottom: "12px",
+                  padding: "10px",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <strong>{inv.owner}</strong>
+                    <div className="muted small">{inv.range || fmtDate(inv.date)}</div>
+                  </div>
+                  <div style={{ color: inv.paid ? "#166534" : "#b91c1c", fontWeight: 700 }}>
+                    {inv.paid ? "✅ Paid" : "🧾 Unpaid"}
+                  </div>
+                </div>
+
+                {inv.items.map((x) => (
+                  <div
+                    key={x.id}
+                    className="small muted"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      borderBottom: "1px dashed #e2e8f0",
+                      padding: "2px 0",
+                    }}
+                  >
+                    <div>
+                      {x.horse} — {x.jobLabel}
+                    </div>
+                    <span>{GBP.format(x.price)}</span>
+                  </div>
+                ))}
+
+                <div style={{ textAlign: "right", fontWeight: 700, marginTop: "6px" }}>
+                  Total: {GBP.format(inv.total)}
+                </div>
+
+                {!inv.paid && (
+                  <button
+                    className="btn sm primary"
+                    onClick={() => markInvoicePaid(inv.id)}
+                    style={{ marginTop: "8px", float: "right" }}
+                  >
+                    💰 Mark Paid
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
