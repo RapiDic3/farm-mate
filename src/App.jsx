@@ -265,20 +265,39 @@ const CalendarView = () => {
 };
 
 // ── DayModal ─────────────────────────────────────
+// ── DayModal with From–To Range ─────────────────────────────────────
 const DayModal = ({ iso, onClose }) => {
-  const [date, setDate] = useState(iso);
-  const [selectedHorse, setSelectedHorse] = useState(activeHorseId || ""); // remembers last
-  const dayLogs = logs.filter((l) => l.ts.slice(0, 10) === date);
-  const total = dayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
+  const [fromDate, setFromDate] = useState(iso);
+  const [toDate, setToDate] = useState(iso);
+  const [selectedHorse, setSelectedHorse] = useState(activeHorseId || "");
+  const [previewDates, setPreviewDates] = useState([]);
 
   // remember last horse globally
   useEffect(() => {
     if (selectedHorse) setActiveHorseId(selectedHorse);
   }, [selectedHorse]);
 
+  // generate list of dates between from and to
+  useEffect(() => {
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
+    const range = [];
+    const d = new Date(start);
+    while (d <= end) {
+      range.push(toISO(d));
+      d.setDate(d.getDate() + 1);
+    }
+    setPreviewDates(range);
+  }, [fromDate, toDate]);
+
+  // gather logs for all dates in range
+  const rangeLogs = logs.filter((l) => previewDates.includes(l.ts.slice(0, 10)));
+  const total = rangeLogs.reduce((s, x) => s + Number(x.price || 0), 0);
+
   const addJob = (job) => {
     if (!selectedHorse) return alert("Choose a horse first");
-    logJob(selectedHorse, job, date); // can add multiple jobs
+    previewDates.forEach((day) => logJob(selectedHorse, job, day));
+    alert(`✅ ${job.label} added for ${previewDates.length} day(s)!`);
   };
 
   const removeJob = (id) => {
@@ -306,7 +325,7 @@ const DayModal = ({ iso, onClose }) => {
           borderRadius: "12px",
           padding: "20px",
           width: "90%",
-          maxWidth: "500px",
+          maxWidth: "520px",
           maxHeight: "80vh",
           overflowY: "auto",
         }}
@@ -320,29 +339,45 @@ const DayModal = ({ iso, onClose }) => {
           }}
         >
           <div style={{ fontWeight: 700, fontSize: "18px" }}>
-            {longDate(date)}
+            Book Jobs — {previewDates.length > 1
+              ? `${fmtDate(fromDate)} → ${fmtDate(toDate)}`
+              : longDate(fromDate)}
           </div>
           <button className="btn sm danger" onClick={onClose}>
             ✖
           </button>
         </div>
 
-        {/* Date picker */}
-        <div style={{ marginTop: "10px" }}>
-          <label className="small muted">Change Date:</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            style={{
-              width: "100%",
-              marginTop: "4px",
-              marginBottom: "12px",
-            }}
-          />
+        {/* Date range pickers */}
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            marginTop: "12px",
+            marginBottom: "12px",
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <label className="small muted">From:</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              style={{ width: "100%" }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="small muted">To:</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              style={{ width: "100%" }}
+            />
+          </div>
         </div>
 
-        {/* Horse selector (remembers last) */}
+        {/* Horse selector */}
         <div>
           <div className="muted small" style={{ fontWeight: 700 }}>
             Select Horse
@@ -380,12 +415,15 @@ const DayModal = ({ iso, onClose }) => {
 
         <hr style={{ margin: "10px 0" }} />
 
-        {/* Jobs list */}
-        <div style={{ fontWeight: 700, marginBottom: "6px" }}>Jobs Logged</div>
-        {dayLogs.length === 0 && (
-          <div className="muted small">No jobs logged for this day.</div>
+        {/* Job list for date range */}
+        <div style={{ fontWeight: 700, marginBottom: "6px" }}>
+          Jobs in Range
+        </div>
+        {rangeLogs.length === 0 && (
+          <div className="muted small">No jobs logged yet in this range.</div>
         )}
-        {dayLogs.map((l) => {
+
+        {rangeLogs.map((l) => {
           const h = horseMap[l.horseId];
           const o = h ? ownerMap[h.ownerId] : null;
           return (
@@ -401,7 +439,9 @@ const DayModal = ({ iso, onClose }) => {
             >
               <div>
                 <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
-                <span className="muted small">({o?.name || "Owner"})</span>
+                <span className="muted small">
+                  ({o?.name || "Owner"}) — {fmtDate(l.ts)}
+                </span>
               </div>
               <div className="hstack" style={{ gap: "6px" }}>
                 <span>{GBP.format(l.price)}</span>
@@ -413,8 +453,14 @@ const DayModal = ({ iso, onClose }) => {
           );
         })}
 
-        {dayLogs.length > 0 && (
-          <div style={{ textAlign: "right", fontWeight: 700, marginTop: "10px" }}>
+        {rangeLogs.length > 0 && (
+          <div
+            style={{
+              textAlign: "right",
+              fontWeight: 700,
+              marginTop: "10px",
+            }}
+          >
             Total: {GBP.format(total)}
           </div>
         )}
@@ -422,6 +468,7 @@ const DayModal = ({ iso, onClose }) => {
     </div>
   );
 };
+
 
   // ── DayModal END
 
