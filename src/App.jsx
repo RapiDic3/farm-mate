@@ -799,90 +799,111 @@ const DailyView = () => {
           </div>
 
           {/* INVOICES BOX */}
-          {invoices.length > 0 && (
-            <div
-              style={{
-                borderTop: "2px solid #e2e8f0",
-                marginTop: "20px",
-                paddingTop: "10px",
-                background: "#fff",
-                borderRadius: "12px",
-                padding: "16px",
-              }}
-            >
-              <div
-                className="muted small"
-                style={{ fontWeight: 700, marginBottom: "6px" }}
-              >
-                Invoices
-              </div>
+      {invoices.length > 0 && (
+  <div
+    style={{
+      borderTop: "2px solid #e2e8f0",
+      marginTop: "30px",
+      paddingTop: "20px",
+      background: "#fff",
+      borderRadius: "12px",
+      padding: "16px",
+    }}
+  >
+    <div
+      className="muted small"
+      style={{ fontWeight: 700, marginBottom: "6px" }}
+    >
+      Invoices
+    </div>
 
-              {invoices.map((inv) => (
-                <div
-                  key={inv.id}
-                  style={{
-                    background: inv.paid ? "#dcfce7" : "#fff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "10px",
-                    marginBottom: "10px",
-                    padding: "10px",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      fontWeight: 700,
-                      marginBottom: "6px",
-                    }}
-                  >
-                    <span>
-                      {inv.owner} —{" "}
-                      {inv.range ? inv.range : fmtDate(inv.date)}
-                    </span>
-                    <span>{inv.paid ? "✅ Paid" : "🧾 Unpaid"}</span>
-                  </div>
-
-                  {inv.items.map((x) => (
-                    <div
-                      key={x.id}
-                      className="small muted"
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <span>
-                        {x.horse} — {x.jobLabel}
-                      </span>
-                      <span>{GBP.format(x.price)}</span>
-                    </div>
-                  ))}
-
-                  <div
-                    style={{
-                      textAlign: "right",
-                      fontWeight: 700,
-                      marginTop: "6px",
-                    }}
-                  >
-                    Total: {GBP.format(inv.total)}
-                  </div>
-
-                  {!inv.paid && (
-                    <button
-                      className="btn sm primary"
-                      onClick={() => markInvoicePaid(inv.id)}
-                      style={{ marginTop: "8px" }}
-                    >
-                      💰 Mark Paid
-                    </button>
-                  )}
-                </div>
-              ))}
+    {invoices.map((inv) => (
+      <div
+        key={inv.id}
+        style={{
+          background: inv.paid ? "#dcfce7" : "#fff",
+          border: "1px solid #e2e8f0",
+          borderRadius: "10px",
+          marginBottom: "12px",
+          padding: "14px 12px",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontWeight: 700,
+            marginBottom: "8px",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: "16px" }}>{inv.owner}</div>
+            <div className="muted small" style={{ fontSize: "13px" }}>
+              {inv.range
+                ? `Dates: ${inv.range}`
+                : `Date: ${fmtDate(inv.date)}`}
             </div>
-          )}
+          </div>
+          <span
+            style={{
+              fontWeight: 700,
+              color: inv.paid ? "#166534" : "#b91c1c",
+              fontSize: "13px",
+            }}
+          >
+            {inv.paid ? "✅ Paid" : "🧾 Unpaid"}
+          </span>
+        </div>
+
+        {/* Job Items */}
+        {inv.items.map((x) => (
+          <div
+            key={x.id}
+            className="small muted"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              borderBottom: "1px dashed #e2e8f0",
+              padding: "2px 0",
+            }}
+          >
+            <span>
+              {x.horse} — {x.jobLabel}
+            </span>
+            <span>{GBP.format(x.price)}</span>
+          </div>
+        ))}
+
+        {/* Total */}
+        <div
+          style={{
+            textAlign: "right",
+            fontWeight: 700,
+            marginTop: "8px",
+            borderTop: "1px solid #e2e8f0",
+            paddingTop: "6px",
+          }}
+        >
+          Total: {GBP.format(inv.total)}
+        </div>
+
+        {/* Paid Button */}
+        {!inv.paid && (
+          <button
+            className="btn sm primary"
+            onClick={() => markInvoicePaid(inv.id)}
+            style={{ marginTop: "10px", float: "right" }}
+          >
+            💰 Mark Paid
+          </button>
+        )}
+      </div>
+    ))}
+  </div>
+)}
+
         </div>
       </section>
     </div>
