@@ -266,364 +266,151 @@ const CalendarView = () => {
 
   // ── DayModal (unchanged full content from your file)
   // keep everything you had for DayModal here, unchanged
-const DailyView = () => {
-  const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
-  const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
-  const [selectedOwner, setSelectedOwner] = useState("all");
+const CalendarView = () => {
+  if (!calendarMonth) return null;
 
-  // ─── Create a new invoice from today's un-invoiced jobs ───────────────
-  const makeInvoice = () => {
-    if (!todayLogs.length) return alert("No jobs to invoice.");
-
-    const byOwner = {};
-    todayLogs.forEach((l) => {
-      const h = horseMap[l.horseId];
-      const o = h ? ownerMap[h.ownerId] : null;
-      if (!o) return;
-      if (!byOwner[o.name]) byOwner[o.name] = [];
-      byOwner[o.name].push({ ...l, horse: h?.name });
-    });
-
-    const newInvoices = Object.entries(byOwner).map(([owner, items]) => ({
-      id: uid(),
-      date: selectedDate,
-      owner,
-      items,
-      total: items.reduce((sum, x) => sum + Number(x.price || 0), 0),
-      paid: false,
-    }));
-
-    setInvoices((prev) => [...newInvoices, ...prev]);
-    alert("✅ Invoice created! Scroll down to view or screenshot.");
-  };
-
-  // ─── Mark invoice as paid and update logs ─────────────────────────────
-  const markInvoicePaid = (id) => {
-    const inv = invoices.find((i) => i.id === id);
-    if (!inv) return;
-    if (!confirm(`Mark ${inv.owner}'s invoice as paid?`)) return;
-
-    setInvoices((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, paid: true } : i))
+  let days = [];
+  let first;
+  try {
+    const matrix = monthMatrix(calendarMonth);
+    days = matrix.days;
+    first = matrix.first;
+  } catch (e) {
+    console.error("Calendar matrix failed:", e);
+    return (
+      <div style={{ padding: 20, color: "red" }}>
+        ⚠️ Calendar error: {String(e.message)}
+      </div>
     );
-    setLogs((prev) =>
-      prev.map((l) =>
-        inv.items.some((x) => x.id === l.id) ? { ...l, paid: true } : l
-      )
-    );
-  };
+  }
 
-  // ─── Summary Totals by Owner ──────────────────────────────────────────
-  const ownerTotals = useMemo(() => {
-    const totals = {};
-    invoices.forEach((inv) => {
-      if (!totals[inv.owner]) totals[inv.owner] = { paid: 0, unpaid: 0 };
-      if (inv.paid) totals[inv.owner].paid += inv.total;
-      else totals[inv.owner].unpaid += inv.total;
-    });
-    return totals;
-  }, [invoices]);
+  const label = first?.toLocaleString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
 
   return (
-    <div
-      className="daily-view"
-      style={{
-        width: "100%",
-        minHeight: "calc(100vh - var(--header-height, 60px))",
-        padding: "24px 32px",
-        background: "#f0f9ff",
-        boxSizing: "border-box",
-      }}
-    >
-      <section
-        className="card full"
+    <div className="stack">
+      <div className="hstack" style={{ justifyContent: "space-between" }}>
+        <button
+          className="btn"
+          onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}
+        >
+          ←
+        </button>
+        <div style={{ fontWeight: 700, color: "#fff" }}>{label}</div>
+        <button
+          className="btn"
+          onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}
+        >
+          →
+        </button>
+      </div>
+
+      <button className="btn" onClick={() => setTab("daily")} style={{ margin: "8px 0" }}>
+        ⬅️ Back to Main
+      </button>
+
+      <div
+        className="muted small"
         style={{
-          width: "100%",
-          background: "#fff",
-          borderRadius: "0",
-          border: "none",
-          boxShadow: "none",
+          display: "grid",
+          gridTemplateColumns: "repeat(7,1fr)",
+          textAlign: "center",
         }}
       >
-        {/* Header */}
-        <div
-          className="header hstack"
-          style={{
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "12px 0",
-            borderBottom: "2px solid #e2e8f0",
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: "20px" }}>
-            Jobs — {longDate(selectedDate)}
-          </div>
-          <div className="hstack">
-            <button
-              className="btn sm"
-              onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-            >
-              ⏪
-            </button>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
-            <button
-              className="btn sm"
-              onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-            >
-              ⏩
-            </button>
-          </div>
-        </div>
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          <div key={d}>{d}</div>
+        ))}
+      </div>
 
-        {/* Two-column layout */}
-        <div
-          className="content"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1.2fr",
-            gap: "32px",
-            alignItems: "start",
-            marginTop: "20px",
-          }}
-        >
-          {/* LEFT SIDE — Add Jobs */}
-          <div className="stack">
-            <div className="muted small" style={{ fontWeight: 700 }}>
-              Select Horse
-            </div>
-            <select
-              value={activeHorseId}
-              onChange={(e) => setActiveHorseId(e.target.value)}
-            >
-              <option value="">Choose horse</option>
-              {horses.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} — {ownerMap[h.ownerId]?.name}
-                </option>
-              ))}
-            </select>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7,1fr)",
+          gap: "4px",
+        }}
+      >
+        {Array.isArray(days) &&
+          days.map((d) => {
+            const iso = toISO(d);
+            const inMonth = d.getMonth() === calendarMonth.getMonth();
+            const tot = dayTotal ? dayTotal(iso) : 0;
+            const hasPaid = dayHasPaid ? dayHasPaid(iso) : false;
+            const hasShoot =
+              typeof jobsOnDate === "function"
+                ? jobsOnDate(iso).some((x) => x.jobKey === "shoot")
+                : false;
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
-                gap: "8px",
-                marginTop: "12px",
-              }}
-            >
-              {jobs.map((j) => (
-                <button
-                  key={j.key}
-                  className="btn"
-                  onClick={() => logJob(activeHorseId, j)}
-                >
-                  {j.label}
-                  {j.price ? ` • ${GBP.format(j.price)}` : ""}
-                </button>
-              ))}
-            </div>
-
-            <div className="hstack" style={{ marginTop: "12px" }}>
-              <button className="btn sm" onClick={undoLast}>
-                ↩️ Undo Last
-              </button>
-              <button className="btn sm danger" onClick={clearDay}>
-                🗑 Clear Day
-              </button>
-            </div>
-          </div>
-
-          {/* RIGHT SIDE — Job Logs, Invoice, and Paid History */}
-          <div className="stack">
-            <div className="muted small" style={{ fontWeight: 700 }}>
-              Jobs Logged
-            </div>
-
-            {todayLogs.length === 0 && (
-              <div className="muted small">No jobs logged today.</div>
-            )}
-
-            {todayLogs.map((l) => {
-              const h = horseMap[l.horseId];
-              const o = h ? ownerMap[h.ownerId] : null;
-              return (
-                <div
-                  key={l.id}
-                  className="rowline small"
-                  style={{ opacity: l.paid ? 0.6 : 1 }}
-                >
-                  <div>
-                    <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
-                    <span className="muted">
-                      ({o?.name || "Owner"}) {l.paid && "✅"}
-                    </span>
-                  </div>
-                  <div className="hstack">
-                    <div className="badge">{GBP.format(l.price)}</div>
-                    <button
-                      className="btn sm danger"
-                      onClick={() => removeLog(l.id)}
-                    >
-                      🗑
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {todayLogs.length > 0 && (
-              <>
-                <div style={{ fontWeight: 700, marginTop: "8px" }}>
-                  Total {GBP.format(todayTotal)}
-                </div>
-                <button
-                  className="btn primary"
-                  onClick={makeInvoice}
-                  style={{ marginTop: "10px" }}
-                >
-                  🧾 Invoice
-                </button>
-              </>
-            )}
-
-            {/* 🧮 Owner Filter + Summary + Invoices */}
-            {invoices.length > 0 && (
-              <div
+            return (
+              <button
+                key={iso}
+                onClick={() => setShowDay(iso)}
                 style={{
-                  borderTop: "1px solid #e2e8f0",
-                  marginTop: "20px",
-                  paddingTop: "10px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  padding: "6px",
+                  minHeight: "56px",
+                  background: inMonth ? "#fff" : "#f1f5f9",
+                  color: inMonth ? "#0f172a" : "#94a3b8",
+                  textAlign: "left",
+                  position: "relative",
+                  cursor: "pointer",
                 }}
               >
-                {/* Owner Summary */}
-                <div
-                  className="muted small"
-                  style={{ fontWeight: 700, marginBottom: "10px" }}
-                >
-                  Totals by Owner:
+                <div style={{ fontSize: "12px", fontWeight: 700 }}>
+                  {d.getDate()}
                 </div>
-                {Object.entries(ownerTotals).map(([owner, t]) => (
+
+                {hasShoot && (
                   <div
-                    key={owner}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "4px 0",
+                      position: "absolute",
+                      left: "6px",
+                      top: "4px",
+                      color: "#f87171",
+                      fontWeight: 900,
+                    }}
+                    title="Shoot day"
+                  >
+                    ⚠️
+                  </div>
+                )}
+
+                {tot > 0 && (
+                  <div
+                    className="badge"
+                    style={{
+                      position: "absolute",
+                      right: "4px",
+                      bottom: "4px",
+                      background: "#0ea5e9",
+                      color: "#fff",
+                    }}
+                  >
+                    {GBP.format(tot)}
+                  </div>
+                )}
+
+                {hasPaid && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "4px",
+                      right: "6px",
                       fontSize: "14px",
                     }}
                   >
-                    <span>{owner}</span>
-                    <span>
-                      Owed: {GBP.format(t.unpaid)} • Paid:{" "}
-                      {GBP.format(t.paid)}
-                    </span>
+                    💰
                   </div>
-                ))}
-
-                {/* Filter Dropdown */}
-                <div style={{ marginTop: "12px" }}>
-                  <label
-                    className="small muted"
-                    style={{ fontWeight: 700, marginRight: "8px" }}
-                  >
-                    Filter by Owner:
-                  </label>
-                  <select
-                    value={selectedOwner}
-                    onChange={(e) => setSelectedOwner(e.target.value)}
-                  >
-                    <option value="all">All Owners</option>
-                    {[...new Set(invoices.map((inv) => inv.owner))].map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Filtered Invoices */}
-                {invoices
-                  .filter(
-                    (inv) =>
-                      selectedOwner === "all" || inv.owner === selectedOwner
-                  )
-                  .map((inv) => (
-                    <div
-                      key={inv.id}
-                      style={{
-                        background: inv.paid ? "#dcfce7" : "#fff",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "10px",
-                        marginTop: "10px",
-                        padding: "10px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          fontWeight: 700,
-                          marginBottom: "6px",
-                        }}
-                      >
-                        <span>
-                          {inv.owner} — {fmtDate(inv.date)}
-                        </span>
-                        <span>{inv.paid ? "✅ Paid" : "🧾 Unpaid"}</span>
-                      </div>
-
-                      {inv.items.map((x) => (
-                        <div
-                          key={x.id}
-                          className="small muted"
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <span>
-                            {x.horse} — {x.jobLabel}
-                          </span>
-                          <span>{GBP.format(x.price)}</span>
-                        </div>
-                      ))}
-
-                      <div
-                        style={{
-                          textAlign: "right",
-                          fontWeight: 700,
-                          marginTop: "6px",
-                        }}
-                      >
-                        Total: {GBP.format(inv.total)}
-                      </div>
-
-                      {!inv.paid && (
-                        <button
-                          className="btn sm primary"
-                          onClick={() => markInvoicePaid(inv.id)}
-                          style={{ marginTop: "8px" }}
-                        >
-                          💰 Mark Paid
-                        </button>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+                )}
+              </button>
+            );
+          })}
+      </div>
     </div>
   );
 };
-
-
 
 
 
