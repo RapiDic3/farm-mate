@@ -146,8 +146,28 @@ export default function App() {
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
 
   const CalendarView = () => {
+    const [selectedDates, setSelectedDates] = useState([]);
     const { days, first } = monthMatrix(calendarMonth);
     const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
+
+    const toggleDate = (iso) => {
+      setSelectedDates((prev) =>
+        prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso]
+      );
+    };
+
+    const clearSelection = () => setSelectedDates([]);
+
+    const [horseId, setHorseId] = useState("");
+    const [jobKey, setJobKey] = useState("");
+
+    const bookSelected = () => {
+      if (!horseId || !jobKey) return alert("Select horse and job first");
+      const job = jobs.find((j) => j.key === jobKey);
+      selectedDates.forEach((iso) => logJob(horseId, job, iso));
+      alert(`✅ ${job.label} booked for ${selectedDates.length} day(s)!`);
+      clearSelection();
+    };
 
     return (
       <div className="stack">
@@ -193,21 +213,26 @@ export default function App() {
             const tot = dayTotal(iso);
             const hasPaid = dayHasPaid(iso);
             const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
+            const selected = selectedDates.includes(iso);
 
             return (
               <button
                 key={iso}
-                onClick={() => setShowDay(iso)}
+                onClick={() => toggleDate(iso)}
                 style={{
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "10px",
-                    padding: "6px",
-                    minHeight: "56px",
-                    background: inMonth ? "#fff" : "#f1f5f9",
-                    color: inMonth ? "#0f172a" : "#94a3b8",
-                    textAlign: "left",
-                    position: "relative",
-                    cursor: "pointer",
+                  border: selected ? "2px solid #0ea5e9" : "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  padding: "6px",
+                  minHeight: "56px",
+                  background: selected
+                    ? "#e0f2fe"
+                    : inMonth
+                    ? "#fff"
+                    : "#f1f5f9",
+                  color: inMonth ? "#0f172a" : "#94a3b8",
+                  textAlign: "left",
+                  position: "relative",
+                  cursor: "pointer",
                 }}
               >
                 <div style={{ fontSize: "12px", fontWeight: 700 }}>{d.getDate()}</div>
@@ -257,6 +282,61 @@ export default function App() {
               </button>
             );
           })}
+        </div>
+
+        {/* ✅ Booking panel */}
+        <div
+          style={{
+            marginTop: "16px",
+            padding: "12px",
+            border: "1px solid #e2e8f0",
+            borderRadius: "10px",
+            background: "#fff",
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: "6px" }}>
+            Book Job for {selectedDates.length} day{selectedDates.length !== 1 && "s"}
+          </div>
+          {selectedDates.length === 0 ? (
+            <div className="muted small">Select one or more days above.</div>
+          ) : (
+            <>
+              <select
+                value={horseId}
+                onChange={(e) => setHorseId(e.target.value)}
+                style={{ width: "100%", marginBottom: "6px" }}
+              >
+                <option value="">Choose horse</option>
+                {horses.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name} — {ownerMap[h.ownerId]?.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={jobKey}
+                onChange={(e) => setJobKey(e.target.value)}
+                style={{ width: "100%", marginBottom: "10px" }}
+              >
+                <option value="">Choose job</option>
+                {jobs.map((j) => (
+                  <option key={j.key} value={j.key}>
+                    {j.label} {j.price ? `• ${GBP.format(j.price)}` : ""}
+                  </option>
+                ))}
+              </select>
+
+              <div className="hstack" style={{ gap: "8px" }}>
+                <button className="btn primary" onClick={bookSelected}>
+                  📅 Book Selected
+                </button>
+                <button className="btn sm" onClick={clearSelection}>
+                  ❌ Clear
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
