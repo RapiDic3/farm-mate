@@ -144,129 +144,882 @@ export default function App() {
   const jobsOnDate = (iso) => logs.filter((l) => l.ts.slice(0, 10) === iso);
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
+// ── CalendarView ────────────────────────────────
+const CalendarView = () => {
+  const { days, first } = monthMatrix(calendarMonth);
+  const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
 
-  // ── Calendar Page (fixed name)
-  const CalendarPage = () => {
-    const { days, first } = monthMatrix(calendarMonth);
-    const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
-
-    return (
+  return (
+    <div className="stack">
       <div className="stack">
-        {/* Month navigation */}
-        <div className="stack">
-          <div className="hstack" style={{ justifyContent: "space-between" }}>
-            <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
-              ←
+        <div className="hstack" style={{ justifyContent: "space-between" }}>
+          <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
+            ←
+          </button>
+          <div style={{ fontWeight: 700, color: "#fff" }}>{label}</div>
+          <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
+            →
+          </button>
+        </div>
+      </div>
+
+      <button className="btn" onClick={goBackToMain} style={{ margin: "8px 0" }}>
+        ⬅️ Back to Main
+      </button>
+
+      {/* Weekday headers */}
+      <div
+        className="muted small"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7,1fr)",
+          textAlign: "center",
+        }}
+      >
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          <div key={d}>{d}</div>
+        ))}
+      </div>
+
+      {/* Calendar days */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7,1fr)",
+          gap: "4px",
+        }}
+      >
+        {days.map((d) => {
+          const iso = toISO(d);
+          const inMonth = d.getMonth() === calendarMonth.getMonth();
+          const tot = dayTotal(iso);
+          const hasPaid = dayHasPaid(iso);
+          const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
+
+          return (
+            <button
+              key={iso}
+              onClick={() => setShowDay(iso)} // ✅ always opens popup
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: "10px",
+                padding: "6px",
+                minHeight: "56px",
+                background: inMonth ? "#fff" : "#f1f5f9",
+                color: inMonth ? "#0f172a" : "#94a3b8",
+                textAlign: "left",
+                position: "relative",
+                cursor: "pointer",
+              }}
+            >
+              <div style={{ fontSize: "12px", fontWeight: 700 }}>{d.getDate()}</div>
+
+              {hasShoot && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "6px",
+                    top: "4px",
+                    color: "#f87171",
+                    fontWeight: 900,
+                  }}
+                  title="Shoot day"
+                >
+                  ⚠️
+                </div>
+              )}
+
+              {tot > 0 && (
+                <div
+                  className="badge"
+                  style={{
+                    position: "absolute",
+                    right: "4px",
+                    bottom: "4px",
+                    background: "#0ea5e9",
+                    color: "#fff",
+                  }}
+                >
+                  {GBP.format(tot)}
+                </div>
+              )}
+
+              {hasPaid && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "4px",
+                    right: "6px",
+                    fontSize: "14px",
+                  }}
+                >
+                  💰
+                </div>
+              )}
             </button>
-            <div style={{ fontWeight: 700, color: "#fff" }}>{label}</div>
-            <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
-              →
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ── DayModal ─────────────────────────────────────
+// ── DayModal with From–To Range ─────────────────────────────────────
+const DayModal = ({ iso, onClose }) => {
+  // 👇 capture the date the modal was opened and lock it in
+  const [initDate] = useState(() => iso);
+
+  // 👇 use lazy initializers so they only run once
+  const [fromDate, setFromDate] = useState(() => {
+    const saved = localStorage.getItem("fm_last_from");
+    return saved || initDate;
+  });
+  const [toDate, setToDate] = useState(() => {
+    const saved = localStorage.getItem("fm_last_to");
+    return saved || initDate;
+  });
+  const [selectedHorse, setSelectedHorse] = useState(() => {
+    const saved = localStorage.getItem("fm_last_horse");
+    return saved || activeHorseId || "";
+  });
+
+  const [previewDates, setPreviewDates] = useState([]);
+
+  // remember last horse globally + persist
+  useEffect(() => {
+    if (selectedHorse) {
+      setActiveHorseId(selectedHorse);
+      localStorage.setItem("fm_last_horse", selectedHorse);
+    }
+  }, [selectedHorse]);
+
+  // generate list of dates between from and to
+  useEffect(() => {
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
+    const range = [];
+    const d = new Date(start);
+    while (d <= end) {
+      range.push(toISO(d));
+      d.setDate(d.getDate() + 1);
+    }
+    setPreviewDates(range);
+
+    // persist range
+    localStorage.setItem("fm_last_from", fromDate);
+    localStorage.setItem("fm_last_to", toDate);
+  }, [fromDate, toDate]);
+
+  // gather logs for all dates in range
+  const rangeLogs = logs.filter((l) => previewDates.includes(l.ts.slice(0, 10)));
+  const total = rangeLogs.reduce((s, x) => s + Number(x.price || 0), 0);
+
+  // 👇 main fix: does not reset from/to/horse after adding jobs
+  const addJob = (job) => {
+    if (!selectedHorse) return alert("Choose a horse first");
+
+    const start = fromDate ? new Date(fromDate) : new Date(initDate);
+    const end = toDate ? new Date(toDate) : new Date(initDate);
+
+    if (end < start) return alert("The 'To' date must be after the 'From' date.");
+
+    const dates = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const isoStr = toISO(d);
+      dates.push(isoStr);
+    }
+
+    dates.forEach((isoStr) => {
+      logJob(selectedHorse, job, isoStr);
+    });
+
+    if (navigator.vibrate) navigator.vibrate(15);
+
+    // ✅ keep modal open and selections intact
+    console.log(`✅ ${job.label} added for ${dates.length} day${dates.length > 1 ? "s" : ""}`);
+  };
+
+  const removeJob = (id) => {
+    if (!confirm("Remove this job?")) return;
+    setLogs((prev) => prev.filter((l) => l.id !== id));
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff",
+          borderRadius: "12px",
+          padding: "20px",
+          width: "90%",
+          maxWidth: "520px",
+          maxHeight: "80vh",
+          overflowY: "auto",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: "18px" }}>
+            Book Jobs —{" "}
+            {previewDates.length > 1
+              ? `${fmtDate(fromDate)} → ${fmtDate(toDate)}`
+              : longDate(fromDate)}
+          </div>
+          <button className="btn sm danger" onClick={onClose}>
+            ✖
+          </button>
+        </div>
+
+        {/* Date range pickers */}
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            marginTop: "12px",
+            marginBottom: "12px",
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <label className="small muted">From:</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              style={{ width: "100%" }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="small muted">To:</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              style={{ width: "100%" }}
+            />
+          </div>
+        </div>
+
+        {/* Horse selector */}
+        <div>
+          <div className="muted small" style={{ fontWeight: 700 }}>
+            Select Horse
+          </div>
+          <select
+            value={selectedHorse}
+            onChange={(e) => setSelectedHorse(e.target.value)}
+            style={{ width: "100%", marginBottom: "10px" }}
+          >
+            <option value="">Choose horse</option>
+            {horses.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name} — {ownerMap[h.ownerId]?.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Job buttons */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
+            gap: "8px",
+            marginBottom: "12px",
+          }}
+        >
+          {jobs.map((j) => (
+            <button key={j.key} className="btn" onClick={() => addJob(j)}>
+              {j.label}
+              {j.price ? ` • ${GBP.format(j.price)}` : ""}
+            </button>
+          ))}
+        </div>
+
+        <hr style={{ margin: "10px 0" }} />
+
+        {/* Job list for date range */}
+        <div style={{ fontWeight: 700, marginBottom: "6px" }}>Jobs in Range</div>
+        {rangeLogs.length === 0 && (
+          <div className="muted small">No jobs logged yet in this range.</div>
+        )}
+
+        {rangeLogs.map((l) => {
+          const h = horseMap[l.horseId];
+          const o = h ? ownerMap[h.ownerId] : null;
+          return (
+            <div
+              key={l.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "6px",
+                fontSize: "14px",
+              }}
+            >
+              <div>
+                <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
+                <span className="muted small">
+                  ({o?.name || "Owner"}) — {fmtDate(l.ts)}
+                </span>
+              </div>
+              <div className="hstack" style={{ gap: "6px" }}>
+                <span>{GBP.format(l.price)}</span>
+                <button className="btn sm danger" onClick={() => removeJob(l.id)}>
+                  🗑
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {rangeLogs.length > 0 && (
+          <div
+            style={{
+              textAlign: "right",
+              fontWeight: 700,
+              marginTop: "10px",
+            }}
+          >
+            Total: {GBP.format(total)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+  // ── DayModal END
+
+  // ── Day view
+const DailyView = () => {
+  const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
+  const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
+
+  // === WEEKLY / RANGE INVOICE FEATURE ===
+  const [fromDate, setFromDate] = useState(addDays(selectedDate, -7));
+  const [toDate, setToDate] = useState(selectedDate);
+
+  // Create invoice for current selectedDate (same as before)
+  const makeInvoice = () => {
+    if (!todayLogs.length) return alert("No jobs to invoice.");
+
+    const byOwner = {};
+    todayLogs.forEach((l) => {
+      const h = horseMap[l.horseId];
+      const o = h ? ownerMap[h.ownerId] : null;
+      if (!o) return;
+      if (!byOwner[o.name]) byOwner[o.name] = [];
+      byOwner[o.name].push({ ...l, horse: h?.name });
+    });
+
+    const newInvoices = Object.entries(byOwner).map(([owner, items]) => ({
+      id: uid(),
+      date: selectedDate,
+      owner,
+      items,
+      total: items.reduce((sum, x) => sum + Number(x.price || 0), 0),
+      paid: false,
+    }));
+
+    setInvoices((prev) => [...newInvoices, ...prev]);
+    alert("✅ Invoice created! Scroll down to view or screenshot.");
+  };
+
+  // ✅ NEW: Weekly / Custom Range Invoicing
+  const makeRangeInvoices = () => {
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
+
+    const rangeLogs = logs.filter((l) => {
+      const d = new Date(l.ts);
+      return d >= start && d <= end && !l.paid;
+    });
+
+    if (!rangeLogs.length) return alert("No unbilled jobs found in this range.");
+
+    const byOwner = {};
+    rangeLogs.forEach((l) => {
+      const h = horseMap[l.horseId];
+      const o = h ? ownerMap[h.ownerId] : null;
+      if (!o) return;
+      if (!byOwner[o.name]) byOwner[o.name] = [];
+      byOwner[o.name].push({ ...l, horse: h?.name });
+    });
+
+    const newInvoices = Object.entries(byOwner).map(([owner, items]) => ({
+      id: uid(),
+      date: todayISO(),
+      owner,
+      items,
+      total: items.reduce((sum, x) => sum + Number(x.price || 0), 0),
+      paid: false,
+      range: `${fmtDate(fromDate)} → ${fmtDate(toDate)}`,
+    }));
+
+    setInvoices((prev) => [...newInvoices, ...prev]);
+    alert(`✅ Created ${newInvoices.length} invoice(s) for this period.`);
+  };
+
+  const markInvoicePaid = (id) => {
+    const inv = invoices.find((i) => i.id === id);
+    if (!inv) return;
+    if (!confirm(`Mark ${inv.owner}'s invoice as paid?`)) return;
+
+    setInvoices((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, paid: true } : i))
+    );
+    setLogs((prev) =>
+      prev.map((l) =>
+        inv.items.some((x) => x.id === l.id) ? { ...l, paid: true } : l
+      )
+    );
+  };
+
+  // === UI ===
+  return (
+    <div
+      className="daily-view"
+      style={{
+        width: "100%",
+        minHeight: "calc(100vh - var(--header-height, 60px))",
+        padding: "24px 32px",
+        background: "#f0f9ff",
+        boxSizing: "border-box",
+      }}
+    >
+      <section
+        className="card full"
+        style={{
+          width: "100%",
+          background: "#fff",
+          borderRadius: "0",
+          border: "none",
+          boxShadow: "none",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="header hstack"
+          style={{
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "12px 0",
+            borderBottom: "2px solid #e2e8f0",
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: "20px" }}>
+            Jobs — {longDate(selectedDate)}
+          </div>
+          <div className="hstack">
+            <button
+              className="btn sm"
+              onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+            >
+              ⏪
+            </button>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
+            <button
+              className="btn sm"
+              onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+            >
+              ⏩
             </button>
           </div>
         </div>
 
-        <button className="btn" onClick={goBackToMain} style={{ margin: "8px 0" }}>
-          ⬅️ Back to Main
-        </button>
-        {/* Weekday headers */}
+        {/* Single-column layout */}
         <div
-          className="muted small"
+          className="content"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(7,1fr)",
-            textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            gap: "32px",
+            alignItems: "stretch",
+            marginTop: "20px",
           }}
         >
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-            <div key={d}>{d}</div>
-          ))}
-        </div>
+          {/* JOB ENTRY SECTION */}
+          <div className="stack">
+            <div className="muted small" style={{ fontWeight: 700 }}>
+              Select Horse
+            </div>
+            <select
+              value={activeHorseId}
+              onChange={(e) => setActiveHorseId(e.target.value)}
+            >
+              <option value="">Choose horse</option>
+              {horses.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name} — {ownerMap[h.ownerId]?.name}
+                </option>
+              ))}
+            </select>
 
-        {/* Calendar days */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(7,1fr)",
-            gap: "4px",
-          }}
-        >
-          {days.map((d) => {
-            const iso = toISO(d);
-            const inMonth = d.getMonth() === calendarMonth.getMonth();
-            const tot = dayTotal(iso);
-            const hasPaid = dayHasPaid(iso);
-            const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
+                gap: "8px",
+                marginTop: "12px",
+              }}
+            >
+              {jobs.map((j) => (
+                <button
+                  key={j.key}
+                  className="btn"
+                  onClick={() => logJob(activeHorseId, j)}
+                >
+                  {j.label}
+                  {j.price ? ` • ${GBP.format(j.price)}` : ""}
+                </button>
+              ))}
+            </div>
 
-            return (
-              <button
-                key={iso}
-                onClick={() => setShowDay(iso)} // Opens DayModal
-                style={{
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "10px",
-                  padding: "6px",
-                  minHeight: "56px",
-                  background: inMonth ? "#fff" : "#f1f5f9",
-                  color: inMonth ? "#0f172a" : "#94a3b8",
-                  textAlign: "left",
-                  position: "relative",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ fontSize: "12px", fontWeight: 700 }}>{d.getDate()}</div>
-
-                {hasShoot && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "6px",
-                      top: "4px",
-                      color: "#f87171",
-                      fontWeight: 900,
-                    }}
-                    title="Shoot day"
-                  >
-                    ⚠️
-                  </div>
-                )}
-
-                {tot > 0 && (
-                  <div
-                    className="badge"
-                    style={{
-                      position: "absolute",
-                      right: "4px",
-                      bottom: "4px",
-                      background: "#0ea5e9",
-                      color: "#fff",
-                    }}
-                  >
-                    {GBP.format(tot)}
-                  </div>
-                )}
-
-                {hasPaid && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "4px",
-                      right: "6px",
-                      fontSize: "14px",
-                    }}
-                  >
-                    💰
-                  </div>
-                )}
+            <div className="hstack" style={{ marginTop: "12px" }}>
+              <button className="btn sm" onClick={undoLast}>
+                ↩️ Undo Last
               </button>
-            );
-          })}
+              <button className="btn sm danger" onClick={clearDay}>
+                🗑 Clear Day
+              </button>
+            </div>
+          </div>
+
+          {/* JOB LIST + TOTAL */}
+          <div className="stack">
+            <div className="muted small" style={{ fontWeight: 700 }}>
+              Jobs Logged
+            </div>
+
+            {todayLogs.length === 0 && (
+              <div className="muted small">No jobs logged today.</div>
+            )}
+
+            {todayLogs.map((l) => {
+              const h = horseMap[l.horseId];
+              const o = h ? ownerMap[h.ownerId] : null;
+              return (
+                <div
+                  key={l.id}
+                  className="rowline small"
+                  style={{ opacity: l.paid ? 0.6 : 1 }}
+                >
+                  <div>
+                    <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
+                    <span className="muted">
+                      ({o?.name || "Owner"}) {l.paid && "✅"}
+                    </span>
+                  </div>
+                  <div className="hstack">
+                    <div className="badge">{GBP.format(l.price)}</div>
+                    <button
+                      className="btn sm danger"
+                      onClick={() => removeLog(l.id)}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {todayLogs.length > 0 && (
+              <>
+                <div style={{ fontWeight: 700, marginTop: "8px" }}>
+                  Total {GBP.format(todayTotal)}
+                </div>
+                <button
+                  className="btn primary"
+                  onClick={makeInvoice}
+                  style={{ marginTop: "10px" }}
+                >
+                  🧾 Invoice
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* ✅ RANGE INVOICE BOX */}
+          <div
+            style={{
+              borderTop: "2px solid #e2e8f0",
+              paddingTop: "12px",
+              background: "#f9fafb",
+              borderRadius: "10px",
+              padding: "12px",
+            }}
+          >
+            <div
+              className="muted small"
+              style={{ fontWeight: 700, marginBottom: "6px" }}
+            >
+              Generate Range / Weekly Invoice
+            </div>
+            <div className="hstack" style={{ gap: "8px", marginBottom: "8px" }}>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+              <span>→</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+            <button className="btn primary" onClick={makeRangeInvoices}>
+              📅 Create Invoices for Period
+            </button>
+          </div>
+
+          {/* INVOICES BOX */}
+      {invoices.length > 0 && (
+  <div
+    style={{
+      borderTop: "2px solid #e2e8f0",
+      marginTop: "30px",
+      paddingTop: "20px",
+      background: "#fff",
+      borderRadius: "12px",
+      padding: "16px",
+    }}
+  >
+    <div
+      className="muted small"
+      style={{ fontWeight: 700, marginBottom: "6px" }}
+    >
+      Invoices
+    </div>
+
+ {invoices.map((inv) => (
+  <div
+    key={inv.id}
+    style={{
+      background: inv.paid ? "#dcfce7" : "#fff",
+      border: "1px solid #e2e8f0",
+      borderRadius: "10px",
+      marginBottom: "12px",
+      padding: "14px 12px",
+    }}
+  >
+    {/* Header */}
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        fontWeight: 700,
+        marginBottom: "8px",
+      }}
+    >
+      <div>
+        <div style={{ fontSize: "16px" }}>{inv.owner}</div>
+        <div className="muted small" style={{ fontSize: "13px" }}>
+          {inv.range
+            ? `Dates: ${inv.range}`
+            : `Date: ${fmtDate(inv.date)}`}
         </div>
+      </div>
+      <span
+        style={{
+          fontWeight: 700,
+          color: inv.paid ? "#166534" : "#b91c1c",
+          fontSize: "13px",
+        }}
+      >
+        {inv.paid ? "✅ Paid" : "🧾 Unpaid"}
+      </span>
+    </div>
+
+    {/* Job Items with Dates */}
+    {inv.items.map((x) => (
+      <div
+        key={x.id}
+        className="small muted"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: "1px dashed #e2e8f0",
+          padding: "4px 0",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <span>
+            <strong>{x.horse}</strong> — {x.jobLabel}
+          </span>
+          <span
+            className="muted"
+            style={{ fontSize: "12px", color: "#64748b" }}
+          >
+            {fmtDate(x.ts)}
+          </span>
+        </div>
+        <span style={{ fontWeight: 600 }}>{GBP.format(x.price)}</span>
+      </div>
+    ))}
+
+    {/* Total */}
+    <div
+      style={{
+        textAlign: "right",
+        fontWeight: 700,
+        marginTop: "8px",
+        borderTop: "1px solid #e2e8f0",
+        paddingTop: "6px",
+      }}
+    >
+      Total: {GBP.format(inv.total)}
+    </div>
+
+    {/* Paid Button */}
+    {!inv.paid && (
+      <button
+        className="btn sm primary"
+        onClick={() => markInvoicePaid(inv.id)}
+        style={{ marginTop: "10px", float: "right" }}
+      >
+        💰 Mark Paid
+      </button>
+    )}
+  </div>
+))}
+
+  </div>
+)}
+
+        </div>
+      </section>
+    </div>
+  );
+};
+
+
+  // ── OwnersView (unchanged)
+  const OwnersView = () => {
+    const addOwner = () => {
+      const name = prompt("Owner name?");
+      if (!name) return;
+      setOwners([...owners, { id: uid(), name }]);
+    };
+
+    const addHorse = (ownerId) => {
+      const name = prompt("Horse name?");
+      if (!name) return;
+      setHorses([...horses, { id: uid(), name, ownerId }]);
+    };
+
+    const removeOwner = (id) => {
+      if (!confirm("Remove this owner?")) return;
+      setOwners((o) => o.filter((x) => x.id !== id));
+      setHorses((h) => h.filter((x) => x.ownerId !== id));
+    };
+
+    return (
+      <div className="stack">
+        <button className="btn primary" onClick={addOwner}>
+          ➕ Add Owner
+        </button>
+        {owners.length === 0 && <div className="muted small">No owners yet.</div>}
+        {owners.map((o) => (
+          <div key={o.id} className="owner-block">
+            <div className="owner-head" style={{ display: "flex", justifyContent: "space-between" }}>
+              <div style={{ fontWeight: 700 }}>{o.name}</div>
+              <div className="hstack" style={{ display: "flex", gap: "6px" }}>
+                <button className="btn sm" onClick={() => addHorse(o.id)}>
+                  Add Horse
+                </button>
+                <button className="btn sm danger" onClick={() => removeOwner(o.id)}>
+                  🗑
+                </button>
+              </div>
+            </div>
+            <div className="owner-rows">
+              {horses
+                .filter((h) => h.ownerId === o.id)
+                .map((h) => (
+                  <div key={h.id} className="rowline small">
+                    {h.name}
+                  </div>
+                ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   };
 
-  // ── DayModal, DailyView, OwnersView, SettingsView ──
-  // (your existing full versions go here unchanged)
+  // ── SettingsView (unchanged)
+  const SettingsView = () => {
+    const clearAll = () => {
+      if (!confirm("Clear all data?")) return;
+      localStorage.clear();
+      location.reload();
+    };
+
+    const exportData = () => {
+      const data = { owners, horses, logs, paidHistory, jobs };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "farmmate_backup.json";
+      a.click();
+    };
+
+    const importData = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const data = JSON.parse(evt.target.result);
+        setOwners(data.owners || []);
+        setHorses(data.horses || []);
+        setLogs(data.logs || []);
+        setPaidHistory(data.paidHistory || []);
+        setJobs(data.jobs || []);
+        alert("Data imported!");
+      };
+      reader.readAsText(file);
+    };
+
+    return (
+      <div className="stack">
+        <button className="btn danger" onClick={clearAll}>
+          🧹 Clear All Data
+        </button>
+        <button className="btn" onClick={exportData}>
+          💾 Export Backup
+        </button>
+        <input type="file" accept=".json" onChange={importData} />
+      </div>
+    );
+  };
 
   // ── Main App Render ──
   return (
@@ -348,7 +1101,7 @@ export default function App() {
 
       <main style={{ marginTop: "16px" }}>
         {tab === "daily" && <DailyView />}
-        {tab === "calendar" && <CalendarPage />}
+        {tab === "calendar" && <CalendarView />}
         {tab === "owners" && <OwnersView />}
         {tab === "settings" && <SettingsView />}
       </main>
