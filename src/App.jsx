@@ -113,6 +113,24 @@ export default function App() {
     if (!confirm(`Clear all jobs for ${longDate(selectedDate)}?`)) return;
     setLogs((prev) => prev.filter((l) => l.ts.slice(0, 10) !== selectedDate));
   };
+// ── Shared across Daily and Calendar
+const markInvoicePaid = (id) => {
+  const inv = invoices.find((i) => i.id === id);
+  if (!inv) return;
+  if (!confirm(`Mark ${inv.owner}'s invoice as paid?`)) return;
+
+  // Mark invoice as paid
+  setInvoices((prev) =>
+    prev.map((i) => (i.id === id ? { ...i, paid: true } : i))
+  );
+
+  // Mark related logs as paid
+  setLogs((prev) =>
+    prev.map((l) =>
+      inv.items.some((x) => x.id === l.id) ? { ...l, paid: true } : l
+    )
+  );
+};
 
   // ── Calendar helpers
   const startOfWeek = (d) => {
@@ -145,9 +163,40 @@ export default function App() {
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
 // ── CalendarView ────────────────────────────────
-const CalendarView = () => {
+const CalendarView = () => 
   const { days, first } = monthMatrix(calendarMonth);
   const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
+
+  return (
+    <div className="stack">
+      <div className="stack">
+        <div className="hstack" style={{ justifyContent: "space-between" }}>
+          <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
+            ←
+          </button>
+          <div style={{ fontWeight: 700, color: "#fff" }}>{label}</div>
+          <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
+            →
+          </button>
+        </div>
+      </div>
+
+      <button className="btn" onClick={goBackToMain} style={{ margin: "8px 0" }}>
+        ⬅️ Back to Main
+      </button>
+
+      {/* Weekday headers */}
+      <div
+        className="muted small"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7,1fr)",
+          textAlign: "center",
+        // ── CalendarView ────────────────────────────────
+const CalendarView = ({ markInvoicePaid }) => {
+  const { days, first } = monthMatrix(calendarMonth);
+  const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
+  const [filterOwner, setFilterOwner] = useState("");
 
   return (
     <div className="stack">
@@ -199,7 +248,7 @@ const CalendarView = () => {
           return (
             <button
               key={iso}
-              onClick={() => setShowDay(iso)} // ✅ always opens popup
+              onClick={() => setShowDay(iso)} // ✅ Opens popup
               style={{
                 border: "1px solid #e2e8f0",
                 borderRadius: "10px",
@@ -260,9 +309,115 @@ const CalendarView = () => {
           );
         })}
       </div>
+
+      {/* ─────────────────────────────── */}
+      {/* 🧾 Invoices below calendar */}
+      {/* ─────────────────────────────── */}
+      <div
+        style={{
+          marginTop: "20px",
+          background: "#fff",
+          border: "1px solid #e2e8f0",
+          borderRadius: "10px",
+          padding: "16px",
+        }}
+      >
+        <div style={{ fontWeight: 700, marginBottom: "8px" }}>Invoices</div>
+
+        {/* Filter by Owner */}
+        <select
+          onChange={(e) => setFilterOwner(e.target.value)}
+          value={filterOwner}
+          style={{
+            marginBottom: "10px",
+            width: "100%",
+            padding: "6px",
+            borderRadius: "8px",
+          }}
+        >
+          <option value="">All Owners</option>
+          {owners.map((o) => (
+            <option key={o.id} value={o.name}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+
+        {invoices
+          .filter((inv) => !filterOwner || inv.owner === filterOwner)
+          .map((inv) => (
+            <div
+              key={inv.id}
+              style={{
+                background: inv.paid ? "#dcfce7" : "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "10px",
+                marginBottom: "12px",
+                padding: "10px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  fontWeight: 700,
+                  marginBottom: "6px",
+                }}
+              >
+                <span>
+                  {inv.owner} — {fmtDate(inv.date)}
+                </span>
+                <span>{inv.paid ? "✅ Paid" : "🧾 Unpaid"}</span>
+              </div>
+
+              {inv.items.map((x) => (
+                <div
+                  key={x.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "14px",
+                    borderBottom: "1px dashed #e2e8f0",
+                    padding: "3px 0",
+                  }}
+                >
+                  <span>
+                    {x.horse} — {x.jobLabel}{" "}
+                    <span style={{ color: "#64748b", fontSize: "12px" }}>
+                      ({fmtDate(x.ts)})
+                    </span>
+                  </span>
+                  <span>{GBP.format(x.price)}</span>
+                </div>
+              ))}
+
+              <div
+                style={{
+                  textAlign: "right",
+                  fontWeight: 700,
+                  marginTop: "6px",
+                }}
+              >
+                Total: {GBP.format(inv.total)}
+              </div>
+
+              {!inv.paid && (
+                <button
+                  className="btn sm primary"
+                  onClick={() => markInvoicePaid(inv.id)}
+                  style={{ marginTop: "8px" }}
+                >
+                  💰 Mark Paid
+                </button>
+              )}
+            </div>
+          ))}
+      </div>
     </div>
   );
 };
+
 
 // ── DayModal ─────────────────────────────────────
 // ── DayModal with From–To Range ─────────────────────────────────────
