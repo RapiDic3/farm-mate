@@ -69,7 +69,7 @@ export default function App() {
   // ── Maps
   const ownerMap = useMemo(() => Object.fromEntries(owners.map((o) => [o.id, o])), [owners]);
   const horseMap = useMemo(() => Object.fromEntries(horses.map((h) => [h.id, h])), [horses]);
-  const goBackToMain = () => setTab("");
+  const goBackToMain = () => setTab("daily");
 
   // ── Helpers
   const toISO = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0, 10);
