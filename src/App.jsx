@@ -351,7 +351,7 @@ const DayModal = ({ iso, onClose }) => {
 
         {/* Existing jobs */}
         {list.length === 0 && <div className="muted small">No jobs on this day.</div>}
-        {list.map((l) => {
+  {list.map((l) => {
           const h = horseMap[l.horseId];
           const o = h ? ownerMap[h.ownerId] : null;
           return (
@@ -369,30 +369,34 @@ const DayModal = ({ iso, onClose }) => {
                   {l.completed && "✅ Completed"} {l.paid && "💰 Paid"}
                 </span>
               </div>
-<div
-  className="hstack"
-  style={{
-    gap: "6px",
-    flexWrap: "wrap",
-    justifyContent: "flex-end",   // ✅ space for all buttons
-    alignItems: "center",
-  }}
->
-  <div className="badge">{GBP.format(l.price)}</div>
-  <button
-    className="btn sm"
-    onClick={() => markCompleted(l.id)}
-    style={{
-      background: l.completed ? "#10b981" : "#e2e8f0",
-      color: l.completed ? "#fff" : "#000",
-    }}
-  >
-    {l.completed ? "Undo" : "Complete"}
-  </button>
-  <button className="btn sm danger" onClick={() => removeLog(l.id)}>
-    🗑
-  </button>
-</div>
+              <div
+                className="hstack"
+                style={{
+                  gap: "6px",
+                  flexWrap: "wrap",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                }}
+              >
+                <div className="badge">{GBP.format(l.price)}</div>
+                <button
+                  className="btn sm"
+                  onClick={() => markCompleted(l.id)}
+                  style={{
+                    background: l.completed ? "#10b981" : "#e2e8f0",
+                    color: l.completed ? "#fff" : "#000",
+                  }}
+                >
+                  {l.completed ? "Undo" : "Complete"}
+                </button>
+                <button className="btn sm danger" onClick={() => removeLog(l.id)}>
+                  🗑
+                </button>
+              </div>
+            </div>
+          );
+        })} {/* ✅ properly close map() before next section */}
+
 
         {/* Multi-job + range add */}
         <div
