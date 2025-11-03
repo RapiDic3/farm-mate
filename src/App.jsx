@@ -246,148 +246,160 @@ export default function App() {
       </div>
     );
   };
-  // ── DayModal (multi-job select only here)
-  const DayModal = ({ iso, onClose }) => {
-    const [selectedJobs, setSelectedJobs] = useState([]); // ✅ new
-    const [rangeHorseId, setRangeHorseId] = useState("");
-    const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
-    const tot = list.reduce((s, x) => s + Number(x.price || 0), 0);
+// ── DayModal (fixed multi-job add inside calendar)
+const DayModal = ({ iso, onClose }) => {
+  const [selectedJobs, setSelectedJobs] = useState([]);
+  const [selectedHorseId, setSelectedHorseId] = useState("");
+  const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
+  const tot = list.reduce((s, x) => s + Number(x.price || 0), 0);
 
-    const toggleJob = (k) =>
-      setSelectedJobs((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
+  const toggleJob = (jobKey) =>
+    setSelectedJobs((prev) =>
+      prev.includes(jobKey)
+        ? prev.filter((k) => k !== jobKey)
+        : [...prev, jobKey]
+    );
 
-    const addSelected = () => {
-      if (!rangeHorseId) return alert("Choose a horse");
-      if (selectedJobs.length === 0) return alert("Select at least one job");
-      selectedJobs.forEach((k) => {
-        const job = jobs.find((j) => j.key === k);
-        if (job) logJob(rangeHorseId, job, iso);
-      });
-      setSelectedJobs([]);
-      alert("Jobs added.");
-    };
+  const addSelectedJobs = () => {
+    if (!selectedHorseId) return alert("Choose a horse first");
+    if (selectedJobs.length === 0) return alert("Select at least one job");
 
-    return (
+    selectedJobs.forEach((jobKey) => {
+      const job = jobs.find((j) => j.key === jobKey);
+      if (job) logJob(selectedHorseId, job, iso);
+    });
+
+    setSelectedJobs([]);
+    setSelectedHorseId("");
+    alert("✅ Jobs added for this day!");
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.4)",
+        display: "grid",
+        placeItems: "center",
+        padding: "16px",
+        zIndex: 100,
+      }}
+    >
       <div
         style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,.4)",
-          display: "grid",
-          placeItems: "center",
+          background: "#fff",
+          borderRadius: "16px",
+          width: "min(720px,100%)",
           padding: "16px",
-          zIndex: 100,
+          maxHeight: "80vh",
+          overflow: "auto",
         }}
       >
         <div
+          className="hstack"
+          style={{ justifyContent: "space-between", marginBottom: "8px" }}
+        >
+          <div style={{ fontWeight: 800 }}>Jobs on {fmtDate(iso)}</div>
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+
+        {list.length === 0 && <div className="muted small">No jobs on this day.</div>}
+        {list.map((l) => {
+          const h = horseMap[l.horseId];
+          const o = h ? ownerMap[h.ownerId] : null;
+          return (
+            <div
+              key={l.id}
+              className="rowline small"
+              style={{ opacity: l.paid ? 0.6 : 1 }}
+            >
+              <div>
+                <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
+                <span className="muted">
+                  ({o?.name || "Owner"}) {l.paid && "✅"}
+                </span>
+              </div>
+              <div className="hstack">
+                <div className="badge">{GBP.format(l.price)}</div>
+                <button
+                  className="btn sm danger"
+                  onClick={() => removeLog(l.id)}
+                >
+                  🗑
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {list.length > 0 && (
+          <div className="muted" style={{ fontWeight: 700 }}>
+            Total {GBP.format(tot)}
+          </div>
+        )}
+
+        {/* ✅ Multi-job add */}
+        <div
+          className="stack"
           style={{
-            background: "#fff",
-            borderRadius: "16px",
-            width: "min(720px,100%)",
-            padding: "16px",
-            maxHeight: "80vh",
-            overflow: "auto",
+            marginTop: "16px",
+            paddingTop: "8px",
+            borderTop: "1px solid #e2e8f0",
           }}
         >
-          <div
-            className="hstack"
-            style={{ justifyContent: "space-between", marginBottom: "8px" }}
+          <div style={{ fontWeight: 800 }}>Add multiple jobs to {fmtDate(iso)}</div>
+
+          <label className="label">Horse</label>
+          <select
+            value={selectedHorseId}
+            onChange={(e) => setSelectedHorseId(e.target.value)}
           >
-            <div style={{ fontWeight: 800 }}>Jobs on {fmtDate(iso)}</div>
-            <button className="btn" onClick={onClose}>
-              Close
-            </button>
-          </div>
+            <option value="">Choose horse</option>
+            {horses.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name} — {ownerMap[h.ownerId]?.name}
+              </option>
+            ))}
+          </select>
 
-          {list.length === 0 && <div className="muted small">No jobs on this day.</div>}
-          {list.map((l) => {
-            const h = horseMap[l.horseId];
-            const o = h ? ownerMap[h.ownerId] : null;
-            return (
-              <div
-                key={l.id}
-                className="rowline small"
-                style={{ opacity: l.paid ? 0.6 : 1 }}
-              >
-                <div>
-                  <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
-                  <span className="muted">
-                    ({o?.name || "Owner"}) {l.paid && "✅"}
-                  </span>
-                </div>
-                <div className="hstack">
-                  <div className="badge">{GBP.format(l.price)}</div>
-                  <button
-                    className="btn sm danger"
-                    onClick={() => removeLog(l.id)}
-                  >
-                    🗑
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-          {list.length > 0 && (
-            <div className="muted" style={{ fontWeight: 700 }}>
-              Total {GBP.format(tot)}
-            </div>
-          )}
-
-          {/* ✅ Multi-job select */}
           <div
-            className="stack"
             style={{
-              marginTop: "12px",
-              paddingTop: "8px",
-              borderTop: "1px solid #e2e8f0",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
+              gap: "8px",
             }}
           >
-            <div className="muted small" style={{ fontWeight: 700 }}>
-              Add multiple jobs to {fmtDate(iso)}
-            </div>
-            <select
-              value={rangeHorseId}
-              onChange={(e) => setRangeHorseId(e.target.value)}
-            >
-              <option value="">Choose horse</option>
-              {horses.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} — {ownerMap[h.ownerId]?.name}
-                </option>
-              ))}
-            </select>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
-                gap: "8px",
-              }}
-            >
-              {jobs.map((j) => (
-                <button
-                  key={j.key}
-                  className="btn"
-                  onClick={() => toggleJob(j.key)}
-                  style={{
-                    background: selectedJobs.includes(j.key) ? "#0ea5e9" : "#fff",
-                    color: selectedJobs.includes(j.key) ? "#fff" : "#000",
-                  }}
-                >
-                  {j.label}
-                  {j.price ? ` • ${GBP.format(j.price)}` : ""}
-                </button>
-              ))}
-            </div>
-            {selectedJobs.length > 0 && (
-              <button className="btn primary" onClick={addSelected}>
-                ✅ Add Selected ({selectedJobs.length})
+            {jobs.map((j) => (
+              <button
+                key={j.key}
+                className="btn"
+                onClick={() => toggleJob(j.key)}
+                style={{
+                  background: selectedJobs.includes(j.key) ? "#0ea5e9" : "#fff",
+                  color: selectedJobs.includes(j.key) ? "#fff" : "#000",
+                  border:
+                    j.key === "shoot" ? "2px solid #f87171" : "1px solid #e2e8f0",
+                }}
+              >
+                {j.label}
+                {j.price ? ` • ${GBP.format(j.price)}` : ""}
               </button>
-            )}
+            ))}
           </div>
+
+          {selectedJobs.length > 0 && (
+            <button className="btn primary" onClick={addSelectedJobs}>
+              ✅ Add {selectedJobs.length} Job
+              {selectedJobs.length > 1 ? "s" : ""} for {fmtDate(iso)}
+            </button>
+          )}
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   // ── DailyView ──
   const DailyView = () => {
