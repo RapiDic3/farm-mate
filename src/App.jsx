@@ -145,29 +145,11 @@ export default function App() {
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
 
-  const CalendarView = () => {
-    const [selectedDates, setSelectedDates] = useState([]);
+  
+//  CalendarView new info added
+   const CalendarView = () => {
     const { days, first } = monthMatrix(calendarMonth);
     const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
-
-    const toggleDate = (iso) => {
-      setSelectedDates((prev) =>
-        prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso]
-      );
-    };
-
-    const clearSelection = () => setSelectedDates([]);
-
-    const [horseId, setHorseId] = useState("");
-    const [jobKey, setJobKey] = useState("");
-
-    const bookSelected = () => {
-      if (!horseId || !jobKey) return alert("Select horse and job first");
-      const job = jobs.find((j) => j.key === jobKey);
-      selectedDates.forEach((iso) => logJob(horseId, job, iso));
-      alert(`✅ ${job.label} booked for ${selectedDates.length} day(s)!`);
-      clearSelection();
-    };
 
     return (
       <div className="stack">
@@ -187,6 +169,7 @@ export default function App() {
           ⬅️ Back to Main
         </button>
 
+        {/* Weekday headers */}
         <div
           className="muted small"
           style={{
@@ -200,6 +183,7 @@ export default function App() {
           ))}
         </div>
 
+        {/* Calendar days */}
         <div
           style={{
             display: "grid",
@@ -213,22 +197,17 @@ export default function App() {
             const tot = dayTotal(iso);
             const hasPaid = dayHasPaid(iso);
             const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
-            const selected = selectedDates.includes(iso);
 
             return (
               <button
                 key={iso}
-                onClick={() => toggleDate(iso)}
+                onClick={() => setShowDay(iso)} // ✅ Opens the popup
                 style={{
-                  border: selected ? "2px solid #0ea5e9" : "1px solid #e2e8f0",
+                  border: "1px solid #e2e8f0",
                   borderRadius: "10px",
                   padding: "6px",
                   minHeight: "56px",
-                  background: selected
-                    ? "#e0f2fe"
-                    : inMonth
-                    ? "#fff"
-                    : "#f1f5f9",
+                  background: inMonth ? "#fff" : "#f1f5f9",
                   color: inMonth ? "#0f172a" : "#94a3b8",
                   textAlign: "left",
                   position: "relative",
@@ -283,6 +262,10 @@ export default function App() {
             );
           })}
         </div>
+      </div>
+    );
+  };
+
 
         {/* ✅ Booking panel */}
         <div
@@ -341,6 +324,9 @@ export default function App() {
       </div>
     );
   };
+  // ──END 
+
+
 
   // ── DayModal (this was missing — added now)
   const DayModal = ({ iso, onClose }) => {
