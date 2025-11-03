@@ -144,8 +144,11 @@ export default function App() {
   const jobsOnDate = (iso) => logs.filter((l) => l.ts.slice(0, 10) === iso);
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
-// ── CalendarView ────────────────────────────────
-// ── CalendarView ────────────────────────────────
+
+
+
+
+  
 const CalendarView = () => {
   const { days, first } = monthMatrix(calendarMonth);
   const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
