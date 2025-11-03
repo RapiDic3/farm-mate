@@ -267,59 +267,6 @@ export default function App() {
   };
 
 
-        {/* ✅ Booking panel */}
-        <div
-          style={{
-            marginTop: "16px",
-            padding: "12px",
-            border: "1px solid #e2e8f0",
-            borderRadius: "10px",
-            background: "#fff",
-          }}
-        >
-          <div style={{ fontWeight: 700, marginBottom: "6px" }}>
-            Book Job for {selectedDates.length} day{selectedDates.length !== 1 && "s"}
-          </div>
-          {selectedDates.length === 0 ? (
-            <div className="muted small">Select one or more days above.</div>
-          ) : (
-            <>
-              <select
-                value={horseId}
-                onChange={(e) => setHorseId(e.target.value)}
-                style={{ width: "100%", marginBottom: "6px" }}
-              >
-                <option value="">Choose horse</option>
-                {horses.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name} — {ownerMap[h.ownerId]?.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={jobKey}
-                onChange={(e) => setJobKey(e.target.value)}
-                style={{ width: "100%", marginBottom: "10px" }}
-              >
-                <option value="">Choose job</option>
-                {jobs.map((j) => (
-                  <option key={j.key} value={j.key}>
-                    {j.label} {j.price ? `• ${GBP.format(j.price)}` : ""}
-                  </option>
-                ))}
-              </select>
-
-              <div className="hstack" style={{ gap: "8px" }}>
-                <button className="btn primary" onClick={bookSelected}>
-                  📅 Book Selected
-                </button>
-                <button className="btn sm" onClick={clearSelection}>
-                  ❌ Clear
-                </button>
-              </div>
-            </>
-
   // ──END 
 
 
