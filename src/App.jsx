@@ -163,35 +163,7 @@ const markInvoicePaid = (id) => {
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
 // ── CalendarView ────────────────────────────────
-const CalendarView = ({ markInvoicePaid }) => {
-  const { days, first } = monthMatrix(calendarMonth);
-  const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
 
-  return (
-    <div className="stack">
-      <div className="stack">
-        <div className="hstack" style={{ justifyContent: "space-between" }}>
-          <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
-            ←
-          </button>
-          <div style={{ fontWeight: 700, color: "#fff" }}>{label}</div>
-          <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
-            →
-          </button>
-        </div>
-      </div>
-
-      <button className="btn" onClick={goBackToMain} style={{ margin: "8px 0" }}>
-        ⬅️ Back to Main
-      </button>
-
-      {/* Weekday headers */}
-      <div
-        className="muted small"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7,1fr)",
-          textAlign: "center",
         // ── CalendarView ────────────────────────────────
 const CalendarView = ({ markInvoicePaid }) => {
   const { days, first } = monthMatrix(calendarMonth);
