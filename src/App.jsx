@@ -442,9 +442,23 @@ const DailyView = () => {
   const todayLogs = logs.filter((l) => l.ts.slice(0, 10) === selectedDate);
   const todayTotal = todayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
+  const markAllPaid = () => {
+    if (!todayLogs.length) return alert("No jobs to mark paid.");
+    if (!confirm("Mark all today's jobs as paid?")) return;
+    setLogs((prev) =>
+      prev.map((l) =>
+        l.ts.slice(0, 10) === selectedDate ? { ...l, paid: true } : l
+      )
+    );
+  };
+
+  const paidJobs = todayLogs.filter((l) => l.paid);
+  const paidTotal = paidJobs.reduce((s, x) => s + Number(x.price || 0), 0);
+
   return (
     <div className="row">
       <section className="card">
+        {/* Header */}
         <div
           className="header hstack"
           style={{ justifyContent: "space-between", alignItems: "center" }}
@@ -471,17 +485,17 @@ const DailyView = () => {
           </div>
         </div>
 
-        {/* Two-column layout like original */}
+        {/* Two-column layout */}
         <div
           className="content"
           style={{
             display: "grid",
-            gridTemplateColumns: "2fr 1.2fr",
-            gap: "16px",
+            gridTemplateColumns: "2fr 1fr",
+            gap: "24px",
             alignItems: "start",
           }}
         >
-          {/* LEFT SIDE: Job adding area */}
+          {/* LEFT SIDE */}
           <div className="stack">
             <div
               className="grid"
@@ -507,6 +521,7 @@ const DailyView = () => {
               </div>
             </div>
 
+            {/* Job buttons */}
             <div className="grid cols-3 jobs-grid" style={{ marginTop: "12px" }}>
               {jobs.map((j) => (
                 <button
@@ -532,11 +547,25 @@ const DailyView = () => {
             </div>
           </div>
 
-          {/* RIGHT SIDE: Recent & Totals */}
-          <div className="stack" style={{ background: "#f8fafc", padding: "12px", borderRadius: "12px" }}>
-            <div className="small" style={{ fontWeight: 700 }}>
-              Recent
+          {/* RIGHT SIDE — wider and pushed over */}
+          <div
+            className="stack"
+            style={{
+              background: "#f1f5f9",
+              padding: "16px",
+              borderRadius: "12px",
+              border: "1px solid #e2e8f0",
+              minWidth: "280px",
+              marginLeft: "auto",
+            }}
+          >
+            <div
+              className="small"
+              style={{ fontWeight: 700, borderBottom: "1px solid #e2e8f0", paddingBottom: "4px" }}
+            >
+              Recent Jobs
             </div>
+
             {todayLogs.length === 0 && (
               <div className="muted small">No jobs logged yet.</div>
             )}
@@ -547,7 +576,11 @@ const DailyView = () => {
                 <div
                   key={l.id}
                   className="rowline small"
-                  style={{ opacity: l.paid ? 0.6 : 1 }}
+                  style={{
+                    opacity: l.paid ? 0.6 : 1,
+                    background: "#fff",
+                    border: "1px solid #e2e8f0",
+                  }}
                 >
                   <div>
                     <div style={{ fontWeight: 600 }}>
@@ -569,15 +602,50 @@ const DailyView = () => {
                 </div>
               );
             })}
+
             {todayLogs.length > 0 && (
+              <>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    marginTop: "8px",
+                    textAlign: "right",
+                    borderTop: "1px solid #e2e8f0",
+                    paddingTop: "4px",
+                  }}
+                >
+                  Total {GBP.format(todayTotal)}
+                </div>
+                <button
+                  className="btn primary block"
+                  style={{ marginTop: "6px" }}
+                  onClick={markAllPaid}
+                >
+                  💰 Mark All as Paid
+                </button>
+              </>
+            )}
+
+            {paidJobs.length > 0 && (
               <div
+                className="stack"
                 style={{
-                  fontWeight: 700,
-                  marginTop: "8px",
-                  textAlign: "right",
+                  marginTop: "12px",
+                  borderTop: "2px solid #0ea5e9",
+                  paddingTop: "8px",
                 }}
               >
-                Total {GBP.format(todayTotal)}
+                <div style={{ fontWeight: 700, color: "#0ea5e9" }}>
+                  Invoice Summary
+                </div>
+                {paidJobs.map((p) => (
+                  <div key={p.id} className="small muted">
+                    {p.jobLabel} — {fmtDate(p.ts)} • {GBP.format(p.price)}
+                  </div>
+                ))}
+                <div style={{ fontWeight: 700, marginTop: "4px" }}>
+                  Paid Total: {GBP.format(paidTotal)}
+                </div>
               </div>
             )}
           </div>
@@ -586,6 +654,7 @@ const DailyView = () => {
     </div>
   );
 };
+
 
 
   // ── OwnersView ──
