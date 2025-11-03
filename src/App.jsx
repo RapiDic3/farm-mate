@@ -69,7 +69,6 @@ export default function App() {
   // ── Maps
   const ownerMap = useMemo(() => Object.fromEntries(owners.map((o) => [o.id, o])), [owners]);
   const horseMap = useMemo(() => Object.fromEntries(horses.map((h) => [h.id, h])), [horses]);
-  const goBackToMain = () => setTab("");
 
   // ── Helpers
   const toISO = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0, 10);
@@ -145,211 +144,213 @@ export default function App() {
   const dayTotal = (iso) => jobsOnDate(iso).reduce((s, x) => s + Number(x.price || 0), 0);
   const dayHasPaid = (iso) => jobsOnDate(iso).some((x) => x.paid);
 
-const CalendarView = () => {
-  const { days, first } = monthMatrix(calendarMonth);
-  const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
+  // ── DailyView (placeholder for now, replaced in Part 2)
+  const DailyView = () => (
+    <div style={{ padding: "20px" }}>
+      <h2>Daily Jobs</h2>
+      <p>Daily job/invoice screen will appear here.</p>
+    </div>
+  );
+  // ── CalendarView ──
+  const CalendarView = () => {
+    const { days, first } = monthMatrix(calendarMonth);
+    const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
 
-  return (
-    <div className="stack">
-      <div className="stack">
-        <div className="hstack" style={{ justifyContent: "space-between" }}>
-          <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
-            ←
-          </button>
-          <div style={{ fontWeight: 700, color: "#fff" }}>{label}</div>
-          <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
-            →
+    return (
+      <div className="stack" style={{ padding: "20px" }}>
+        <div className="stack">
+          <div className="hstack" style={{ justifyContent: "space-between" }}>
+            <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
+              ←
+            </button>
+            <div style={{ fontWeight: 700, color: "#0f172a" }}>{label}</div>
+            <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
+              →
+            </button>
+          </div>
+        </div>
+
+        <button className="btn" onClick={() => setTab("daily")} style={{ margin: "8px 0" }}>
+          ⬅️ Back to Main
+        </button>
+
+        <div
+          className="muted small"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7,1fr)",
+            textAlign: "center",
+            marginBottom: "4px",
+          }}
+        >
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+            <div key={d}>{d}</div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7,1fr)",
+            gap: "4px",
+          }}
+        >
+          {days.map((d) => {
+            const iso = toISO(d);
+            const inMonth = d.getMonth() === calendarMonth.getMonth();
+            const tot = dayTotal(iso);
+            const hasPaid = dayHasPaid(iso);
+            const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
+
+            return (
+              <button
+                key={iso}
+                onClick={() => setShowDay(iso)}
+                style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
+                  padding: "6px",
+                  minHeight: "56px",
+                  background: inMonth ? "#fff" : "#f1f5f9",
+                  color: inMonth ? "#0f172a" : "#94a3b8",
+                  textAlign: "left",
+                  position: "relative",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ fontSize: "12px", fontWeight: 700 }}>{d.getDate()}</div>
+
+                {hasShoot && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "6px",
+                      top: "4px",
+                      color: "#f87171",
+                      fontWeight: 900,
+                    }}
+                    title="Shoot day"
+                  >
+                    ⚠️
+                  </div>
+                )}
+
+                {tot > 0 && (
+                  <div
+                    className="badge"
+                    style={{
+                      position: "absolute",
+                      right: "4px",
+                      bottom: "4px",
+                      background: "#0ea5e9",
+                      color: "#fff",
+                    }}
+                  >
+                    {GBP.format(tot)}
+                  </div>
+                )}
+
+                {hasPaid && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "4px",
+                      right: "6px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    💰
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ── DayModal ──
+  const DayModal = ({ iso, onClose }) => {
+    const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
+    const total = list.reduce((s, x) => s + Number(x.price || 0), 0);
+
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.4)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1000,
+        }}
+        onClick={onClose}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            background: "#fff",
+            borderRadius: "12px",
+            padding: "20px",
+            width: "90%",
+            maxWidth: "420px",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+          }}
+        >
+          <h3 style={{ marginBottom: "10px" }}>{longDate(iso)}</h3>
+          {list.length === 0 ? (
+            <div className="muted small">No jobs logged.</div>
+          ) : (
+            <>
+              {list.map((x) => {
+                const horse = horseMap[x.horseId];
+                const owner = horse ? ownerMap[horse.ownerId] : null;
+                return (
+                  <div
+                    key={x.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      borderBottom: "1px solid #eee",
+                      padding: "4px 0",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <span>
+                      {x.jobLabel} — {horse?.name || "Horse"}{" "}
+                      <span className="muted small">({owner?.name || "Owner"})</span>
+                    </span>
+                    <span>{GBP.format(x.price)}</span>
+                  </div>
+                );
+              })}
+              <div
+                style={{
+                  textAlign: "right",
+                  marginTop: "8px",
+                  fontWeight: 700,
+                }}
+              >
+                Total: {GBP.format(total)}
+              </div>
+            </>
+          )}
+
+          <button
+            className="btn primary"
+            onClick={onClose}
+            style={{ marginTop: "12px" }}
+          >
+            Close
           </button>
         </div>
       </div>
+    );
+  };
 
-      <button className="btn" onClick={goBackToMain} style={{ margin: "8px 0" }}>
-        ⬅️ Back to Main
-      </button>
-
-      <div
-        className="muted small"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7,1fr)",
-          textAlign: "center",
-        }}
-      >
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-          <div key={d}>{d}</div>
-        ))}
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7,1fr)",
-          gap: "4px",
-        }}
-      >
-        {days.map((d) => {
-          const iso = toISO(d);
-          const inMonth = d.getMonth() === calendarMonth.getMonth();
-          const tot = dayTotal(iso);
-          const hasPaid = dayHasPaid(iso);
-          const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
-
-          return (
-            <button
-              key={iso}
-              onClick={() => setShowDay(iso)}
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: "10px",
-                padding: "6px",
-                minHeight: "56px",
-                background: inMonth ? "#fff" : "#f1f5f9",
-                color: inMonth ? "#0f172a" : "#94a3b8",
-                textAlign: "left",
-                position: "relative",
-                cursor: "pointer",
-              }}
-            >
-              <div style={{ fontSize: "12px", fontWeight: 700 }}>{d.getDate()}</div>
-
-              {hasShoot && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: "6px",
-                    top: "4px",
-                    color: "#f87171",
-                    fontWeight: 900,
-                  }}
-                  title="Shoot day"
-                >
-                  ⚠️
-                </div>
-              )}
-
-              {tot > 0 && (
-                <div
-                  className="badge"
-                  style={{
-                    position: "absolute",
-                    right: "4px",
-                    bottom: "4px",
-                    background: "#0ea5e9",
-                    color: "#fff",
-                  }}
-                >
-                  {GBP.format(tot)}
-                </div>
-              )}
-
-              {hasPaid && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "4px",
-                    right: "6px",
-                    fontSize: "14px",
-                  }}
-                >
-                  💰
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-
-// ── DayModal ──
-const DayModal = ({ iso, onClose }) => {
-  const list = logs.filter((l) => l.ts.slice(0, 10) === iso);
-  const total = list.reduce((s, x) => s + Number(x.price || 0), 0);
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "#fff",
-          borderRadius: "12px",
-          padding: "20px",
-          width: "90%",
-          maxWidth: "420px",
-          boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
-        }}
-      >
-        <h3 style={{ marginBottom: "10px" }}>{longDate(iso)}</h3>
-        {list.length === 0 ? (
-          <div className="muted small">No jobs logged.</div>
-        ) : (
-          <>
-            {list.map((x) => {
-              const horse = horseMap[x.horseId];
-              const owner = horse ? ownerMap[horse.ownerId] : null;
-              return (
-                <div
-                  key={x.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    borderBottom: "1px solid #eee",
-                    padding: "4px 0",
-                    fontSize: "14px",
-                  }}
-                >
-                  <span>
-                    {x.jobLabel} — {horse?.name || "Horse"}{" "}
-                    <span className="muted small">
-                      ({owner?.name || "Owner"})
-                    </span>
-                  </span>
-                  <span>{GBP.format(x.price)}</span>
-                </div>
-              );
-            })}
-            <div
-              style={{
-                textAlign: "right",
-                marginTop: "8px",
-                fontWeight: 700,
-              }}
-            >
-              Total: {GBP.format(total)}
-            </div>
-          </>
-        )}
-
-        <button
-          className="btn primary"
-          onClick={onClose}
-          style={{ marginTop: "12px" }}
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  );
-};
-
-
-
-
-
-  // ── OwnersView (unchanged)
+  // ── OwnersView ──
   const OwnersView = () => {
     const addOwner = () => {
       const name = prompt("Owner name?");
@@ -370,12 +371,12 @@ const DayModal = ({ iso, onClose }) => {
     };
 
     return (
-      <div className="stack">
+      <div className="stack" style={{ padding: "20px" }}>
         <button className="btn primary" onClick={addOwner}>➕ Add Owner</button>
         {owners.length === 0 && <div className="muted small">No owners yet.</div>}
         {owners.map((o) => (
           <div key={o.id} className="owner-block">
-            <div className="owner-head">
+            <div className="owner-head" style={{ display: "flex", justifyContent: "space-between" }}>
               <div style={{ fontWeight: 700 }}>{o.name}</div>
               <div className="hstack">
                 <button className="btn sm" onClick={() => addHorse(o.id)}>Add Horse</button>
@@ -393,7 +394,7 @@ const DayModal = ({ iso, onClose }) => {
     );
   };
 
-  // ── SettingsView (unchanged)
+  // ── SettingsView ──
   const SettingsView = () => {
     const clearAll = () => {
       if (!confirm("Clear all data?")) return;
@@ -427,7 +428,7 @@ const DayModal = ({ iso, onClose }) => {
     };
 
     return (
-      <div className="stack">
+      <div className="stack" style={{ padding: "20px" }}>
         <button className="btn danger" onClick={clearAll}>🧹 Clear All Data</button>
         <button className="btn" onClick={exportData}>💾 Export Backup</button>
         <input type="file" accept=".json" onChange={importData} />
