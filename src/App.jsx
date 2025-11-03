@@ -921,8 +921,13 @@ const DailyView = () => {
 };
 
 
-  // ── OwnersView (unchanged)
-  const OwnersView = () => {
+  // ── OwnersView ✅ Expands/collapses per owner
+//✅ Shows horses
+//✅ Shows all invoices for that owner
+//✅ Totals update automatically
+//✅ “Mark Paid” works from this view too
+  
+  const OwnersView = () => 
     const addOwner = () => {
       const name = prompt("Owner name?");
       if (!name) return;
@@ -953,27 +958,215 @@ const DailyView = () => {
               <div style={{ fontWeight: 700 }}>{o.name}</div>
               <div className="hstack" style={{ display: "flex", gap: "6px" }}>
                 <button className="btn sm" onClick={() => addHorse(o.id)}>
-                  Add Horse
+                  Add Horseconst OwnersView = () => {
+  const [openOwnerId, setOpenOwnerId] = useState(null);
+
+  // Add a new owner
+  const addOwner = () => {
+    const name = prompt("Owner name?");
+    if (!name) return;
+    setOwners([...owners, { id: uid(), name }]);
+  };
+
+  // Add horse under specific owner
+  const addHorse = (ownerId) => {
+    const name = prompt("Horse name?");
+    if (!name) return;
+    setHorses([...horses, { id: uid(), name, ownerId }]);
+  };
+
+  // Remove owner (and their horses)
+  const removeOwner = (id) => {
+    if (!confirm("Remove this owner and all their horses?")) return;
+    setOwners((o) => o.filter((x) => x.id !== id));
+    setHorses((h) => h.filter((x) => x.ownerId !== id));
+  };
+
+  // Get invoices for a specific owner
+  const getOwnerInvoices = (ownerName) =>
+    invoices.filter((inv) => inv.owner === ownerName);
+
+  // Calculate total cost to date (paid + unpaid)
+  const getOwnerTotal = (ownerName) =>
+    getOwnerInvoices(ownerName).reduce((sum, inv) => sum + inv.total, 0);
+
+  return (
+    <div className="stack" style={{ padding: "16px" }}>
+      <button className="btn primary" onClick={addOwner}>
+        ➕ Add Owner
+      </button>
+
+      {owners.length === 0 && <div className="muted small">No owners yet.</div>}
+
+      {owners.map((o) => {
+        const horsesForOwner = horses.filter((h) => h.ownerId === o.id);
+        const ownerTotal = getOwnerTotal(o.name);
+        const ownerInvoices = getOwnerInvoices(o.name);
+        const isOpen = openOwnerId === o.id;
+
+        return (
+          <div
+            key={o.id}
+            className="owner-block"
+            style={{
+              background: "#fff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              padding: "12px",
+              marginBottom: "12px",
+            }}
+          >
+            {/* Header */}
+            <div
+              className="owner-head"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "16px" }}>{o.name}</div>
+                <div
+                  className="muted small"
+                  style={{ marginTop: "2px", fontSize: "13px" }}
+                >
+                  Total to Date: {GBP.format(ownerTotal)}
+                </div>
+              </div>
+              <div className="hstack">
+                <button className="btn sm" onClick={() => addHorse(o.id)}>
+                  ➕ Add Horse
+                </button>
+                <button className="btn sm" onClick={() => setOpenOwnerId(isOpen ? null : o.id)}>
+                  {isOpen ? "📉 Hide Invoices" : "📄 View Invoices"}
                 </button>
                 <button className="btn sm danger" onClick={() => removeOwner(o.id)}>
                   🗑
                 </button>
               </div>
             </div>
-            <div className="owner-rows">
-              {horses
-                .filter((h) => h.ownerId === o.id)
-                .map((h) => (
+
+            {/* Horse list */}
+            <div
+              className="owner-rows"
+              style={{
+                marginTop: "8px",
+                paddingLeft: "6px",
+                borderLeft: "3px solid #e2e8f0",
+              }}
+            >
+              {horsesForOwner.length > 0 ? (
+                horsesForOwner.map((h) => (
                   <div key={h.id} className="rowline small">
                     {h.name}
                   </div>
-                ))}
+                ))
+              ) : (
+                <div className="muted small">No horses added yet.</div>
+              )}
             </div>
+
+            {/* Owner invoices (expandable) */}
+            {isOpen && (
+              <div
+                style={{
+                  marginTop: "16px",
+                  paddingTop: "12px",
+                  borderTop: "1px solid #e2e8f0",
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 700,
+                    marginBottom: "6px",
+                    fontSize: "15px",
+                  }}
+                >
+                  Invoices for {o.name}
+                </div>
+
+                {ownerInvoices.length === 0 && (
+                  <div className="muted small">No invoices yet.</div>
+                )}
+
+                {ownerInvoices.map((inv) => (
+                  <div
+                    key={inv.id}
+                    style={{
+                      background: inv.paid ? "#dcfce7" : "#fff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "10px",
+                      marginBottom: "10px",
+                      padding: "10px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontWeight: 700,
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <span>
+                        {fmtDate(inv.date)}
+                      </span>
+                      <span>
+                        {inv.paid ? "✅ Paid" : "🧾 Unpaid"}
+                      </span>
+                    </div>
+
+                    {inv.items.map((x) => (
+                      <div
+                        key={x.id}
+                        className="small muted"
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span>
+                          {x.horse} — {x.jobLabel}{" "}
+                          <span style={{ fontSize: "12px", color: "#64748b" }}>
+                            ({fmtDate(x.ts)})
+                          </span>
+                        </span>
+                        <span>{GBP.format(x.price)}</span>
+                      </div>
+                    ))}
+
+                    <div
+                      style={{
+                        textAlign: "right",
+                        fontWeight: 700,
+                        marginTop: "6px",
+                      }}
+                    >
+                      Total: {GBP.format(inv.total)}
+                    </div>
+
+                    {!inv.paid && (
+                      <button
+                        className="btn sm primary"
+                        onClick={() => markInvoicePaid(inv.id)}
+                        style={{ marginTop: "8px" }}
+                      >
+                        💰 Mark Paid
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
-    );
-  };
+        );
+      })}
+    </div>
+  );
+};
+
 
   // ── SettingsView (unchanged)
   const SettingsView = () => {
