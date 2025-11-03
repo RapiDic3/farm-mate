@@ -246,7 +246,7 @@ export default function App() {
       </div>
     );
   };
-// ── DayModal (multi-job + date-range add inside calendar)
+// ── DayModal (multi-job + date-range + completed)
 const DayModal = ({ iso, onClose }) => {
   const [selectedHorseId, setSelectedHorseId] = useState("");
   const [selectedJobs, setSelectedJobs] = useState([]);
@@ -261,6 +261,14 @@ const DayModal = ({ iso, onClose }) => {
         ? prev.filter((k) => k !== jobKey)
         : [...prev, jobKey]
     );
+
+  const markCompleted = (id) => {
+    setLogs((prev) =>
+      prev.map((l) =>
+        l.id === id ? { ...l, completed: !l.completed } : l
+      )
+    );
+  };
 
   const addJobsAcrossRange = () => {
     if (!selectedHorseId) return alert("Choose a horse first");
@@ -296,6 +304,7 @@ const DayModal = ({ iso, onClose }) => {
               price: Number(job.price || 0),
               ts: isoDay,
               paid: false,
+              completed: false, // ✅ new flag
             });
           }
         }
@@ -340,7 +349,7 @@ const DayModal = ({ iso, onClose }) => {
           </button>
         </div>
 
-        {/* Existing jobs for that day */}
+        {/* Existing jobs */}
         {list.length === 0 && <div className="muted small">No jobs on this day.</div>}
         {list.map((l) => {
           const h = horseMap[l.horseId];
@@ -349,16 +358,29 @@ const DayModal = ({ iso, onClose }) => {
             <div
               key={l.id}
               className="rowline small"
-              style={{ opacity: l.paid ? 0.6 : 1 }}
+              style={{
+                opacity: l.paid ? 0.6 : l.completed ? 0.75 : 1,
+              }}
             >
               <div>
                 <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
                 <span className="muted">
-                  ({o?.name || "Owner"}) {l.paid && "✅"}
+                  ({o?.name || "Owner"}){" "}
+                  {l.completed && "✅ Completed"} {l.paid && "💰 Paid"}
                 </span>
               </div>
               <div className="hstack">
                 <div className="badge">{GBP.format(l.price)}</div>
+                <button
+                  className="btn sm"
+                  onClick={() => markCompleted(l.id)}
+                  style={{
+                    background: l.completed ? "#10b981" : "#e2e8f0",
+                    color: l.completed ? "#fff" : "#000",
+                  }}
+                >
+                  {l.completed ? "Undo" : "Complete"}
+                </button>
                 <button
                   className="btn sm danger"
                   onClick={() => removeLog(l.id)}
@@ -375,7 +397,7 @@ const DayModal = ({ iso, onClose }) => {
           </div>
         )}
 
-        {/* New multi-job + range add */}
+        {/* Multi-job + range add */}
         <div
           className="stack"
           style={{
