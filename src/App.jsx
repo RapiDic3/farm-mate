@@ -267,8 +267,8 @@ const CalendarView = () => {
 // ── DayModal ─────────────────────────────────────
 // ── DayModal with From–To Range ─────────────────────────────────────
 const DayModal = ({ iso, onClose }) => {
-  const [fromDate, setFromDate] = useState(iso);
-  const [toDate, setToDate] = useState(iso);
+const [fromDate, setFromDate] = useState(() => iso);
+const [toDate, setToDate] = useState(() => iso);
   const [selectedHorse, setSelectedHorse] = useState(activeHorseId || "");
   const [previewDates, setPreviewDates] = useState([]);
 
