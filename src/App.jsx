@@ -926,39 +926,8 @@ const DailyView = () => {
 //✅ Shows all invoices for that owner
 //✅ Totals update automatically
 //✅ “Mark Paid” works from this view too
-  
+
 const OwnersView = () => {
-  const [openOwnerId, setOpenOwnerId] = useState(null);
-      const name = prompt("Owner name?");
-      if (!name) return;
-      setOwners([...owners, { id: uid(), name }]);
-    };
-
-    const addHorse = (ownerId) => {
-      const name = prompt("Horse name?");
-      if (!name) return;
-      setHorses([...horses, { id: uid(), name, ownerId }]);
-    };
-
-    const removeOwner = (id) => {
-      if (!confirm("Remove this owner?")) return;
-      setOwners((o) => o.filter((x) => x.id !== id));
-      setHorses((h) => h.filter((x) => x.ownerId !== id));
-    };
-
-    return (
-      <div className="stack">
-        <button className="btn primary" onClick={addOwner}>
-          ➕ Add Owner
-        </button>
-        {owners.length === 0 && <div className="muted small">No owners yet.</div>}
-        {owners.map((o) => (
-          <div key={o.id} className="owner-block">
-            <div className="owner-head" style={{ display: "flex", justifyContent: "space-between" }}>
-              <div style={{ fontWeight: 700 }}>{o.name}</div>
-              <div className="hstack" style={{ display: "flex", gap: "6px" }}>
-                <button className="btn sm" onClick={() => addHorse(o.id)}>
-                  Add Horseconst OwnersView = () => {
   const [openOwnerId, setOpenOwnerId] = useState(null);
 
   // Add a new owner
@@ -1038,7 +1007,10 @@ const OwnersView = () => {
                 <button className="btn sm" onClick={() => addHorse(o.id)}>
                   ➕ Add Horse
                 </button>
-                <button className="btn sm" onClick={() => setOpenOwnerId(isOpen ? null : o.id)}>
+                <button
+                  className="btn sm"
+                  onClick={() => setOpenOwnerId(isOpen ? null : o.id)}
+                >
                   {isOpen ? "📉 Hide Invoices" : "📄 View Invoices"}
                 </button>
                 <button className="btn sm danger" onClick={() => removeOwner(o.id)}>
@@ -1110,12 +1082,8 @@ const OwnersView = () => {
                         marginBottom: "6px",
                       }}
                     >
-                      <span>
-                        {fmtDate(inv.date)}
-                      </span>
-                      <span>
-                        {inv.paid ? "✅ Paid" : "🧾 Unpaid"}
-                      </span>
+                      <span>{fmtDate(inv.date)}</span>
+                      <span>{inv.paid ? "✅ Paid" : "🧾 Unpaid"}</span>
                     </div>
 
                     {inv.items.map((x) => (
@@ -1166,7 +1134,6 @@ const OwnersView = () => {
     </div>
   );
 };
-
 
   // ── SettingsView (unchanged)
   const SettingsView = () => {
