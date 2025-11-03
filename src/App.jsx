@@ -478,95 +478,139 @@ const DailyView = () => {
               </>
             )}
 
-            {/* INVOICE LIST */}
-            {invoices.length > 0 && (
-              <div
-                style={{
-                  borderTop: "1px solid #e2e8f0",
-                  marginTop: "20px",
-                  paddingTop: "10px",
-                }}
-              >
-                <div
-                  className="muted small"
-                  style={{ fontWeight: 700, marginBottom: "6px" }}
-                >
-                  Invoices
-                </div>
-
-                {invoices.map((inv) => (
-                  <div
-                    key={inv.id}
-                    style={{
-                      background: inv.paid ? "#dcfce7" : "#fff",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "10px",
-                      marginBottom: "10px",
-                      padding: "10px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        fontWeight: 700,
-                        marginBottom: "6px",
-                      }}
-                    >
-                      <span>
-                        {inv.owner} — {fmtDate(inv.date)}
-                      </span>
-                      <span>{inv.paid ? "✅ Paid" : "🧾 Unpaid"}</span>
-                    </div>
-
-                    {inv.items.map((x) => (
-                      <div
-                        key={x.id}
-                        className="small muted"
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <span>
-                          {x.horse} — {x.jobLabel}
-                        </span>
-                        <span>{GBP.format(x.price)}</span>
-                      </div>
-                    ))}
-
-                    <div
-                      style={{
-                        textAlign: "right",
-                        fontWeight: 700,
-                        marginTop: "6px",
-                      }}
-                    >
-                      Total: {GBP.format(inv.total)}
-                    </div>
-
-                    {!inv.paid && (
-                      <button
-                        className="btn sm primary"
-                        onClick={() => markInvoicePaid(inv.id)}
-                        style={{ marginTop: "8px" }}
-                      >
-                        💰 Mark Paid
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+        {/* INVOICE LIST (with filters) */}
+{invoices.length > 0 && (
+  <div
+    style={{
+      borderTop: "1px solid #e2e8f0",
+      marginTop: "20px",
+      paddingTop: "10px",
+    }}
+  >
+    <div
+      className="muted small"
+      style={{ fontWeight: 700, marginBottom: "6px" }}
+    >
+      Invoices
     </div>
-  );
-};
 
+    {/* 🔽 Filters */}
+    <div
+      className="hstack"
+      style={{
+        gap: "8px",
+        marginBottom: "10px",
+        alignItems: "center",
+        flexWrap: "wrap",
+      }}
+    >
+      <div>
+        <label className="small muted">Owner:</label>
+        <select
+          value={invoiceOwnerFilter}
+          onChange={(e) => setInvoiceOwnerFilter(e.target.value)}
+          style={{ marginLeft: "6px" }}
+        >
+          <option value="">All</option>
+          {[...new Set(invoices.map((i) => i.owner))].map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </div>
 
+      <div>
+        <label className="small muted">Status:</label>
+        <select
+          value={invoiceStatusFilter}
+          onChange={(e) => setInvoiceStatusFilter(e.target.value)}
+          style={{ marginLeft: "6px" }}
+        >
+          <option value="all">All</option>
+          <option value="unpaid">Unpaid</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
+    </div>
+
+    {/* 🔍 Filtered invoices */}
+    {invoices
+      .filter((inv) =>
+        invoiceOwnerFilter ? inv.owner === invoiceOwnerFilter : true
+      )
+      .filter((inv) =>
+        invoiceStatusFilter === "paid"
+          ? inv.paid
+          : invoiceStatusFilter === "unpaid"
+          ? !inv.paid
+          : true
+      )
+      .map((inv) => (
+        <div
+          key={inv.id}
+          style={{
+            background: inv.paid ? "#dcfce7" : "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "10px",
+            marginBottom: "10px",
+            padding: "10px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontWeight: 700,
+              marginBottom: "6px",
+            }}
+          >
+            <span>
+              {inv.owner} — {fmtDate(inv.date)}
+            </span>
+            <span>{inv.paid ? "✅ Paid" : "🧾 Unpaid"}</span>
+          </div>
+
+          {inv.items.map((x) => (
+            <div
+              key={x.id}
+              className="small muted"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+              }}
+            >
+              <span>
+                {x.horse} — {x.jobLabel}
+              </span>
+              <span>{GBP.format(x.price)}</span>
+            </div>
+          ))}
+
+          <div
+            style={{
+              textAlign: "right",
+              fontWeight: 700,
+              marginTop: "6px",
+            }}
+          >
+            Total: {GBP.format(inv.total)}
+          </div>
+
+          {!inv.paid && (
+            <button
+              className="btn sm primary"
+              onClick={() => markInvoicePaid(inv.id)}
+              style={{ marginTop: "8px" }}
+            >
+              💰 Mark Paid
+            </button>
+          )}
+        </div>
+      ))}
+  </div>
+)}
 
 
 
