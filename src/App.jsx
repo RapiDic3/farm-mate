@@ -294,12 +294,28 @@ const DayModal = ({ iso, onClose }) => {
   const rangeLogs = logs.filter((l) => previewDates.includes(l.ts.slice(0, 10)));
   const total = rangeLogs.reduce((s, x) => s + Number(x.price || 0), 0);
 
-  const addJob = (job) => {
+const addJob = (job) => {
   if (!selectedHorse) return alert("Choose a horse first");
-  previewDates.forEach((day) => logJob(selectedHorse, job, day));
-  // brief visual feedback instead of alert, allows multiple clicks
+  if (!fromDate || !toDate) return alert("Please select both a From and To date");
+
+  // Build the full list of ISO dates between fromDate and toDate (inclusive)
+  const start = new Date(fromDate);
+  const end = new Date(toDate);
+  const range = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    range.push(toISO(d));
+  }
+
+  // Add the job for each day in the range
+  range.forEach((iso) => logJob(selectedHorse, job, iso));
+
+  // Optional quick feedback so you can keep clicking multiple jobs
   if (navigator.vibrate) navigator.vibrate(10);
+
+  // Optional non-blocking message (replace alert)
+  console.log(`Added "${job.label}" for ${range.length} day${range.length > 1 ? "s" : ""}`);
 };
+
 
   const removeJob = (id) => {
     if (!confirm("Remove this job?")) return;
