@@ -147,287 +147,299 @@ export default function App() {
 
   
 //  CalendarView new info added
-   const CalendarView = () => {
-    const { days, first } = monthMatrix(calendarMonth);
-    const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
+ // ── CalendarView ──
+const CalendarView = () => {
+  const [selectedDates, setSelectedDates] = useState([]);
+  const { days, first } = monthMatrix(calendarMonth);
+  const label = first.toLocaleString(undefined, { month: "long", year: "numeric" });
 
-    return (
+  const toggleDate = (iso) => {
+    setSelectedDates((prev) =>
+      prev.includes(iso) ? prev.filter((d) => d !== iso) : [...prev, iso]
+    );
+  };
+
+  return (
+    <div className="stack">
       <div className="stack">
-        <div className="stack">
-          <div className="hstack" style={{ justifyContent: "space-between" }}>
-            <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
-              ←
-            </button>
-            <div style={{ fontWeight: 700, color: "#fff" }}>{label}</div>
-            <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
-              →
-            </button>
-          </div>
+        <div className="hstack" style={{ justifyContent: "space-between" }}>
+          <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
+            ←
+          </button>
+          <div style={{ fontWeight: 700, color: "#fff" }}>{label}</div>
+          <button className="btn" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
+            →
+          </button>
         </div>
+      </div>
 
-        <button className="btn" onClick={goBackToMain} style={{ margin: "8px 0" }}>
-          ⬅️ Back to Main
-        </button>
+      <button className="btn" onClick={goBackToMain} style={{ margin: "8px 0" }}>
+        ⬅️ Back to Main
+      </button>
 
-        {/* Weekday headers */}
+      {/* Weekday headers */}
+      <div
+        className="muted small"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7,1fr)",
+          textAlign: "center",
+        }}
+      >
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          <div key={d}>{d}</div>
+        ))}
+      </div>
+
+      {/* Calendar days */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7,1fr)",
+          gap: "4px",
+        }}
+      >
+        {days.map((d) => {
+          const iso = toISO(d);
+          const inMonth = d.getMonth() === calendarMonth.getMonth();
+          const tot = dayTotal(iso);
+          const hasPaid = dayHasPaid(iso);
+          const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
+          const selected = selectedDates.includes(iso);
+
+          return (
+            <button
+              key={iso}
+              onClick={() => toggleDate(iso)}
+              style={{
+                border: selected ? "2px solid #0ea5e9" : "1px solid #e2e8f0",
+                borderRadius: "10px",
+                padding: "6px",
+                minHeight: "56px",
+                background: selected
+                  ? "#e0f2fe"
+                  : inMonth
+                  ? "#fff"
+                  : "#f1f5f9",
+                color: inMonth ? "#0f172a" : "#94a3b8",
+                textAlign: "left",
+                position: "relative",
+                cursor: "pointer",
+              }}
+            >
+              <div style={{ fontSize: "12px", fontWeight: 700 }}>{d.getDate()}</div>
+
+              {hasShoot && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "6px",
+                    top: "4px",
+                    color: "#f87171",
+                    fontWeight: 900,
+                  }}
+                  title="Shoot day"
+                >
+                  ⚠️
+                </div>
+              )}
+
+              {tot > 0 && (
+                <div
+                  className="badge"
+                  style={{
+                    position: "absolute",
+                    right: "4px",
+                    bottom: "4px",
+                    background: "#0ea5e9",
+                    color: "#fff",
+                  }}
+                >
+                  {GBP.format(tot)}
+                </div>
+              )}
+
+              {hasPaid && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "4px",
+                    right: "6px",
+                    fontSize: "14px",
+                  }}
+                >
+                  💰
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedDates.length > 0 && (
+        <div style={{ marginTop: "12px" }}>
+          <button
+            className="btn primary"
+            onClick={() => setShowDay(selectedDates)}
+          >
+            📅 Add Jobs ({selectedDates.length} day{selectedDates.length > 1 && "s"})
+          </button>
+          <button
+            className="btn sm"
+            onClick={() => setSelectedDates([])}
+            style={{ marginLeft: "6px" }}
+          >
+            ❌ Clear
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── DayModal ──
+const DayModal = ({ iso, onClose }) => {
+  // iso can be a string or array of ISO strings
+  const daysSelected = Array.isArray(iso) ? iso : [iso];
+  const [horseId, setHorseId] = useState("");
+
+  const allLogs = logs.filter((l) => daysSelected.includes(l.ts.slice(0, 10)));
+
+  const addJob = (job) => {
+    if (!horseId) return alert("Choose a horse first");
+    daysSelected.forEach((d) => logJob(horseId, job, d));
+  };
+
+  const removeJob = (id) => {
+    if (!confirm("Remove this job?")) return;
+    setLogs((prev) => prev.filter((l) => l.id !== id));
+  };
+
+  const total = allLogs.reduce((s, x) => s + Number(x.price || 0), 0);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff",
+          borderRadius: "12px",
+          padding: "20px",
+          width: "90%",
+          maxWidth: "520px",
+          maxHeight: "80vh",
+          overflowY: "auto",
+        }}
+      >
+        {/* Header */}
         <div
-          className="muted small"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(7,1fr)",
-            textAlign: "center",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-            <div key={d}>{d}</div>
+          <div style={{ fontWeight: 700, fontSize: "18px" }}>
+            {daysSelected.length === 1
+              ? longDate(daysSelected[0])
+              : `${daysSelected.length} days selected`}
+          </div>
+          <button className="btn sm danger" onClick={onClose}>
+            ✖
+          </button>
+        </div>
+
+        {/* Horse selector */}
+        <div style={{ marginTop: "12px" }}>
+          <div className="muted small" style={{ fontWeight: 700 }}>
+            Select Horse
+          </div>
+          <select
+            value={horseId}
+            onChange={(e) => setHorseId(e.target.value)}
+            style={{ width: "100%", marginBottom: "10px" }}
+          >
+            <option value="">Choose horse</option>
+            {horses.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name} — {ownerMap[h.ownerId]?.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Job buttons */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
+            gap: "8px",
+            marginBottom: "12px",
+          }}
+        >
+          {jobs.map((j) => (
+            <button key={j.key} className="btn" onClick={() => addJob(j)}>
+              {j.label}
+              {j.price ? ` • ${GBP.format(j.price)}` : ""}
+            </button>
           ))}
         </div>
 
-        {/* Calendar days */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(7,1fr)",
-            gap: "4px",
-          }}
-        >
-          {days.map((d) => {
-            const iso = toISO(d);
-            const inMonth = d.getMonth() === calendarMonth.getMonth();
-            const tot = dayTotal(iso);
-            const hasPaid = dayHasPaid(iso);
-            const hasShoot = jobsOnDate(iso).some((x) => x.jobKey === "shoot");
+        <hr style={{ margin: "10px 0" }} />
 
-            return (
-              <button
-                key={iso}
-                onClick={() => setShowDay(iso)} // ✅ Opens the popup
-                style={{
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "10px",
-                  padding: "6px",
-                  minHeight: "56px",
-                  background: inMonth ? "#fff" : "#f1f5f9",
-                  color: inMonth ? "#0f172a" : "#94a3b8",
-                  textAlign: "left",
-                  position: "relative",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ fontSize: "12px", fontWeight: 700 }}>{d.getDate()}</div>
-
-                {hasShoot && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "6px",
-                      top: "4px",
-                      color: "#f87171",
-                      fontWeight: 900,
-                    }}
-                    title="Shoot day"
-                  >
-                    ⚠️
-                  </div>
-                )}
-
-                {tot > 0 && (
-                  <div
-                    className="badge"
-                    style={{
-                      position: "absolute",
-                      right: "4px",
-                      bottom: "4px",
-                      background: "#0ea5e9",
-                      color: "#fff",
-                    }}
-                  >
-                    {GBP.format(tot)}
-                  </div>
-                )}
-
-                {hasPaid && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "4px",
-                      right: "6px",
-                      fontSize: "14px",
-                    }}
-                  >
-                    💰
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-
-  // ──END 
-
-
-
-  // ── DayModal (this was missing — added now)
-  const DayModal = ({ iso, onClose }) => {
-    const [date, setDate] = useState(iso);
-    const [horseId, setHorseId] = useState("");
-
-    const dayLogs = logs.filter((l) => l.ts.slice(0, 10) === date);
-    const total = dayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
-
-    const addJob = (job) => {
-      if (!horseId) return alert("Choose a horse first");
-      logJob(horseId, job, date);
-    };
-
-    const removeJob = (id) => {
-      if (!confirm("Remove this job?")) return;
-      setLogs((prev) => prev.filter((l) => l.id !== id));
-    };
-
-    return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.6)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 9999,
-        }}
-        onClick={onClose}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            background: "#fff",
-            borderRadius: "12px",
-            padding: "20px",
-            width: "90%",
-            maxWidth: "480px",
-            maxHeight: "80vh",
-            overflowY: "auto",
-          }}
-        >
-          {/* Header */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div style={{ fontWeight: 700, fontSize: "18px" }}>
-              {longDate(date)}
-            </div>
-            <button className="btn sm danger" onClick={onClose}>
-              ✖
-            </button>
-          </div>
-
-          {/* Date picker */}
-          <div style={{ marginTop: "10px" }}>
-            <label className="small muted">Change Date:</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
+        {/* Jobs list */}
+        <div style={{ fontWeight: 700, marginBottom: "6px" }}>Jobs Logged</div>
+        {allLogs.length === 0 && (
+          <div className="muted small">No jobs logged yet.</div>
+        )}
+        {allLogs.map((l) => {
+          const h = horseMap[l.horseId];
+          const o = h ? ownerMap[h.ownerId] : null;
+          return (
+            <div
+              key={l.id}
               style={{
-                width: "100%",
-                marginTop: "4px",
-                marginBottom: "12px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "6px",
+                fontSize: "14px",
               }}
-            />
-          </div>
-
-          {/* Horse selector */}
-          <div>
-            <div className="muted small" style={{ fontWeight: 700 }}>
-              Select Horse
-            </div>
-            <select
-              value={horseId}
-              onChange={(e) => setHorseId(e.target.value)}
-              style={{ width: "100%", marginBottom: "10px" }}
             >
-              <option value="">Choose horse</option>
-              {horses.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} — {ownerMap[h.ownerId]?.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Job buttons */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
-              gap: "8px",
-              marginBottom: "12px",
-            }}
-          >
-            {jobs.map((j) => (
-              <button key={j.key} className="btn" onClick={() => addJob(j)}>
-                {j.label}
-                {j.price ? ` • ${GBP.format(j.price)}` : ""}
-              </button>
-            ))}
-          </div>
-
-          <hr style={{ margin: "10px 0" }} />
-
-          {/* Jobs for this day */}
-          <div style={{ fontWeight: 700, marginBottom: "6px" }}>Jobs Logged</div>
-
-          {dayLogs.length === 0 && (
-            <div className="muted small">No jobs logged for this day.</div>
-          )}
-
-          {dayLogs.map((l) => {
-            const h = horseMap[l.horseId];
-            const o = h ? ownerMap[h.ownerId] : null;
-            return (
-              <div
-                key={l.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "6px",
-                  fontSize: "14px",
-                }}
-              >
-                <div>
-                  <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
-                  <span className="muted small">({o?.name || "Owner"})</span>
-                </div>
-                <div className="hstack" style={{ gap: "6px" }}>
-                  <span>{GBP.format(l.price)}</span>
-                  <button className="btn sm danger" onClick={() => removeJob(l.id)}>
-                    🗑
-                  </button>
-                </div>
+              <div>
+                <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
+                <span className="muted small">({o?.name || "Owner"})</span>
               </div>
-            );
-          })}
-
-          {dayLogs.length > 0 && (
-            <div style={{ textAlign: "right", fontWeight: 700, marginTop: "10px" }}>
-              Total: {GBP.format(total)}
+              <div className="hstack" style={{ gap: "6px" }}>
+                <span>{GBP.format(l.price)}</span>
+                <button className="btn sm danger" onClick={() => removeJob(l.id)}>
+                  🗑
+                </button>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
-    );
-  };
+          );
+        })}
 
+        {allLogs.length > 0 && (
+          <div style={{ textAlign: "right", fontWeight: 700, marginTop: "10px" }}>
+            Total: {GBP.format(total)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
   // ── DayModal END
 
