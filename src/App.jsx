@@ -344,8 +344,21 @@ export default function App() {
 
   // ── DayModal (this was missing — added now)
   const DayModal = ({ iso, onClose }) => {
-    const dayLogs = logs.filter((l) => l.ts.slice(0, 10) === iso);
+    const [date, setDate] = useState(iso);
+    const [horseId, setHorseId] = useState("");
+
+    const dayLogs = logs.filter((l) => l.ts.slice(0, 10) === date);
     const total = dayLogs.reduce((s, x) => s + Number(x.price || 0), 0);
+
+    const addJob = (job) => {
+      if (!horseId) return alert("Choose a horse first");
+      logJob(horseId, job, date);
+    };
+
+    const removeJob = (id) => {
+      if (!confirm("Remove this job?")) return;
+      setLogs((prev) => prev.filter((l) => l.id !== id));
+    };
 
     return (
       <div
@@ -372,14 +385,81 @@ export default function App() {
             overflowY: "auto",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontWeight: 700, fontSize: "18px" }}>{longDate(iso)}</div>
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: "18px" }}>
+              {longDate(date)}
+            </div>
             <button className="btn sm danger" onClick={onClose}>
               ✖
             </button>
           </div>
 
-          {dayLogs.length === 0 && <div className="muted small" style={{ marginTop: "10px" }}>No jobs logged.</div>}
+          {/* Date picker */}
+          <div style={{ marginTop: "10px" }}>
+            <label className="small muted">Change Date:</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              style={{
+                width: "100%",
+                marginTop: "4px",
+                marginBottom: "12px",
+              }}
+            />
+          </div>
+
+          {/* Horse selector */}
+          <div>
+            <div className="muted small" style={{ fontWeight: 700 }}>
+              Select Horse
+            </div>
+            <select
+              value={horseId}
+              onChange={(e) => setHorseId(e.target.value)}
+              style={{ width: "100%", marginBottom: "10px" }}
+            >
+              <option value="">Choose horse</option>
+              {horses.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name} — {ownerMap[h.ownerId]?.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Job buttons */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))",
+              gap: "8px",
+              marginBottom: "12px",
+            }}
+          >
+            {jobs.map((j) => (
+              <button key={j.key} className="btn" onClick={() => addJob(j)}>
+                {j.label}
+                {j.price ? ` • ${GBP.format(j.price)}` : ""}
+              </button>
+            ))}
+          </div>
+
+          <hr style={{ margin: "10px 0" }} />
+
+          {/* Jobs for this day */}
+          <div style={{ fontWeight: 700, marginBottom: "6px" }}>Jobs Logged</div>
+
+          {dayLogs.length === 0 && (
+            <div className="muted small">No jobs logged for this day.</div>
+          )}
 
           {dayLogs.map((l) => {
             const h = horseMap[l.horseId];
@@ -390,8 +470,8 @@ export default function App() {
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  gap: "10px",
-                  marginTop: "8px",
+                  alignItems: "center",
+                  marginBottom: "6px",
                   fontSize: "14px",
                 }}
               >
@@ -399,13 +479,18 @@ export default function App() {
                   <strong>{l.jobLabel}</strong> — {h?.name || "Horse"}{" "}
                   <span className="muted small">({o?.name || "Owner"})</span>
                 </div>
-                <div>{GBP.format(l.price)}</div>
+                <div className="hstack" style={{ gap: "6px" }}>
+                  <span>{GBP.format(l.price)}</span>
+                  <button className="btn sm danger" onClick={() => removeJob(l.id)}>
+                    🗑
+                  </button>
+                </div>
               </div>
             );
           })}
 
           {dayLogs.length > 0 && (
-            <div style={{ textAlign: "right", fontWeight: 700, marginTop: "12px" }}>
+            <div style={{ textAlign: "right", fontWeight: 700, marginTop: "10px" }}>
               Total: {GBP.format(total)}
             </div>
           )}
@@ -413,6 +498,7 @@ export default function App() {
       </div>
     );
   };
+
 
   // ── DayModal END
 
